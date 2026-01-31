@@ -1,0 +1,131 @@
+.header__another-link {
+  padding-top: 18px;
+  display: flex;
+  width: calc(100% - 500px);
+  align-items: center;
+  margin: 0 auto;
+  padding-bottom: 18px;
+}
+.header_blue {
+  background-color: #073042;
+}
+.header__logo {
+  width: 38px;
+  height: 38px;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+}
+
+.header__button {
+  display: none;
+}
+
+.header__logo:hover {
+  opacity: 0.7;
+}
+
+.header__link_film {
+  margin-left: 44px;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.header__link_profile {
+  margin-left: calc(100% - 363px);
+}
+
+.header__link {
+  text-decoration: none;
+  color: white;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.header__link:hover {
+  opacity: 0.7;
+}
+
+.header__link_save {
+  white-space: nowrap;
+  margin-left: 16px;
+}
+
+.header__circle {
+  width: 26px;
+  height: 26px;
+  border-radius: 50px;
+  background: #313131;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 7px;
+}
+
+.header__img {
+  width: 10px;
+  height: 10px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.header__button:hover {
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.header__menu {
+  display: none;
+  background: #202020;
+}
+.header__menu_active {
+  display: block;
+}
+
+.header__glavn {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.header__parag {
+  white-space: nowrap;
+  font-size: 18px;
+  font-style: normal;
+  font-weight: 500;
+  line-height: 16px;
+  margin-left: 20px;
+  text-decoration: none;
+}
+
+.header {
+  background: #dcdcdc;
+}
+@media (max-width: 770px) {
+  .header__another-link {
+    width: calc(100% - 60px);
+    display: flex;
+    justify-content: space-between;
+  }
+  .header__link {
+    display: none;
+  }
+  .header__button_active {
+    display: block;
+  }
+}
+
+@media (max-width: 425px) {
+  .header__another-link {
+    width: calc(100% - 28px);
+  }
+  .header__button {
+    width: 22px;
+    height: 35px;
+    margin-right: 9px;
+  }
+}

@@ -1,0 +1,33 @@
+.over {
+  max-width: 80%;
+  margin: 0 auto;
+  margin-top: 100px;
+}
+
+.over__container {
+  padding-top: 20px;
+  padding-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  border-bottom: 1px solid #6495ed;
+}
+.over__img {
+  height: 300px;
+  width: 300px;
+}
+
+.over__title {
+  font-size: 30px;
+}
+
+.over__line {
+  background: #6495ed;
+  width: 50px;
+  height: 5px;
+  margin: 0 auto;
+}
+
+.over__text {
+  font-weight: 400;
+  font-size: 20px;
+}

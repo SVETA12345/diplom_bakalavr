@@ -56,7 +56,12 @@ const createUser = (req, res, next) => {
       bcrypt.hash(req.body.password, 10, (err, hash) => User.create({
         email: req.body.email,
         name: req.body.name,
-        password: hash, // записываем хеш в базу
+        password: hash,
+        role: req.body.role,
+        department: req.body.department,
+        surname: req.body.surname,
+        patronomic: req.body.patronomic, 
+        group: req.body.group
       })
         .then(() => res.send({ message: 'Вы успешно зарегистрировались' }))
         .catch((err) => {
@@ -81,7 +86,7 @@ const login = (req, res, next) => {
     throw new BadRequestError('переданы некорректные данные в методы создания фильма или пользователя');
   }
 
-  return User.findOne({ email }).select('password')
+  return User.findOne({ email }).select('+password')
     .then((admin) => {
       if (!admin) {
         throw new UnauthorizedError('Такого пользователя не существует');
@@ -105,7 +110,8 @@ const login = (req, res, next) => {
           });
           console.log(req.cookies)
           console.log('token Back', token);
-          res.send({ token });
+          admin.password = password
+          res.send({ token, admin });
         });
     })
     .catch((err) => { next(err); });
