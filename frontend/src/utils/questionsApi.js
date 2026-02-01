@@ -18,35 +18,35 @@ class Api{
         
     }
     
-    getTests(){
-        return fetch(`${this._url}/tests`, {
-            method: 'GET',
-            credentials: 'include',
-            withCredentials: true,
-            headers: this._headers,
-          }).then((res)=>{
-            return this._getResponseData(res)
-        })
-    }
-    addTest(test){
-        return fetch(`${this._url}/tests/`, {
+    addQuestion(question){
+        return fetch(`${this._url}/questions/`, {
             method: 'POST',
             withCredentials: true,
             credentials: 'include',
             headers: this._headers,
-            body: JSON.stringify(test)
+            body: JSON.stringify(question)
           }).then((res)=>{
             return this._getResponseData(res)
         })
     } 
-    updateTest(test){
-        return fetch(`${this._url}/tests/`, {
+    updateQuestion(question){
+        return fetch(`${this._url}/questions/`, {
             method: 'PATCH',
             withCredentials: true,
             credentials: 'include',
             headers: this._headers,
-            body: JSON.stringify(test)
+            body: JSON.stringify(question)
           }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
+    deleteQuestion(questionId){
+        return fetch(`${this._url}/questions/${questionId}`, {
+            method:"DELETE",
+            withCredentials: true,
+            credentials: 'include',
+            headers:this._headers
+        }).then((res)=>{
             return this._getResponseData(res)
         })
     }
@@ -62,7 +62,7 @@ class Api{
     }
 }
 
-export const testsApi = new Api({
+export const questionsApi = new Api({
     url:'http://localhost:3005/api',
     headers:{
       'Content-Type': 'application/json',

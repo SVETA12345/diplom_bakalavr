@@ -14,18 +14,14 @@ import {
   Radio,
   Checkbox,
   IconButton,
-  FormGroup,
-  Divider,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions
+  Divider
 } from '@material-ui/core';
 import AddIcon from '@material-ui/icons/Add';
 import DeleteIcon from '@material-ui/icons/Delete';
 import SaveIcon from '@material-ui/icons/Save';
 import CancelIcon from '@material-ui/icons/Cancel';
 import { makeStyles } from '@material-ui/core/styles';
+import ModalStatus from '../ModalStatus/ModalStatus';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -61,10 +57,10 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
-const CreateQuestionForm = ({ testId, onSave, onCancel, questionOriginal }) => {
+const CreateQuestionForm = ({ orderNew, testId, onSave, onCancel, questionOriginal }) => {
   const classes = useStyles();
   const [question, setQuestion] = useState({
-    order: 1,
+    order: orderNew,
     text: '',
     testId: testId || '',
     type: 'single',
@@ -380,19 +376,8 @@ const CreateQuestionForm = ({ testId, onSave, onCancel, questionOriginal }) => {
           </Button>
         </div>
       </form>
+      <ModalStatus titleDialog={'Ошибка'} openDialog={openDialog} handleCloseDialog={handleCloseDialog} dialogMessage={dialogMessage}/>
       
-      {/* Диалог для ошибок (вместо Snackbar) */}
-      <Dialog open={openDialog} onClose={handleCloseDialog}>
-        <DialogTitle>Ошибка</DialogTitle>
-        <DialogContent>
-          <Typography>{dialogMessage}</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog} color="primary">
-            OK
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Paper>
   );
 };
