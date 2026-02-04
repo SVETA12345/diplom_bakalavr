@@ -17,7 +17,16 @@ class Api{
         })
         
     }
-    
+    getQuestions(testId){
+        return fetch(`${this._url}/questions/${testId}`, {
+            method: 'GET',
+            credentials: 'include',
+            withCredentials: true,
+            headers: this._headers,
+          }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
     addQuestion(question){
         return fetch(`${this._url}/questions/`, {
             method: 'POST',

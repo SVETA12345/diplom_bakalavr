@@ -11,7 +11,7 @@ import {
 
 const OptionCard = ({stat, index})=>{
   return (
-    <Grid item xs={12} sm={6} md={4} key={index}>
+    <Grid onClick={stat.onClick} item xs={12} sm={6} md={4} key={index}>
       <Card 
         className="stat-card" 
         style={{ 

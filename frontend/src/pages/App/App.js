@@ -1,6 +1,6 @@
 import './App.css';
 import { Routes, Route, BrowserRouter, useNavigate, Navigate } from 'react-router-dom';
-import Main from '../Main/Main'
+import Main from '../../components/Main/Main'
 import Registr from '../Registr/Registr';
 import Glavnay from '../Glavnay/Glavnay'
 import Login from '../Login/Login'
@@ -8,9 +8,10 @@ import { useSelector } from 'react-redux';
 import { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import TestEditor from '../TestEditor/TestEditor'
+import TestListPage from '../TestListPage/TestListPage';
 
 import * as duckAuth from '../../utils/authApi'
-import ProtectedRoute from '../ProtectedRoute/ProtectedRoute';
+import ProtectedRoute from '../../components/ProtectedRoute/ProtectedRoute';
 import { createUser, loginUser } from '../../services/actions/user';
 function App() {
   const dispatch = useDispatch();
@@ -34,7 +35,7 @@ function App() {
       }).catch((err)=> console.log(err))
       
   }, [])
-  const isLoggedIn = useSelector(state => state.isAuthenticated);
+  const isLoggedIn = useSelector(state => state.user.isAuthenticated);
   return (
     <div className="App">
         <div className='page'>
@@ -56,6 +57,22 @@ function App() {
                 element={
                 <ProtectedRoute isLoggedIn={isLoggedIn}>
                     <TestEditor />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+  path="tests/:testIdActive" 
+  element={
+    <ProtectedRoute isLoggedIn={isLoggedIn}>
+      <TestEditor />
+    </ProtectedRoute>
+  } 
+/>
+          <Route 
+                path="/tests_list" 
+                element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                    <TestListPage />
               </ProtectedRoute>
             } 
           />

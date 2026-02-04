@@ -1,3 +1,4 @@
+const Question = require('../models/question');
 const Test = require('../models/test');
 const httpConstants = require('http2').constants;
 const NotFoundError = require('../errors/not-found-err');
@@ -57,23 +58,44 @@ const deleteTest = (req, res, next) => {
     .orFail()
     .then((test) => {
       if (test.owner === req.user._id) {
-        Test.findByIdAndRemove(req.params._id)
-          .orFail()
-          .then((test) => res.send({ test }))
-          .catch((err) => {
-            if (err.name === 'DocumentNotFoundError') {
-              next(new NotFoundError('тест или пользователь не найден'));
-            } else if (err.name === 'ValidationError' || err.name === 'CastError') {
-              next(new BadRequestError('переданы некорректные данные в методы создания теста или пользователя'));
-            }
+        // Удаляем все вопросы этого теста
+        return Question.deleteMany({ testId: req.params._id })
+          .then(() => {
+            // После удаления вопросов удаляем сам тест
+            return Test.findByIdAndDelete(req.params._id);
+          })
+          .then((deletedTest) => {
+            res.send({ 
+              message: 'Тест и все связанные вопросы успешно удалены',
+              test: deletedTest 
+            });
           });
-      } else { throw new UnauthorizedError('Недостаточно прав'); }
+      } else { 
+        throw new UnauthorizedError('Недостаточно прав'); 
+      }
     })
     .catch((err) => {
       if (err.name === 'DocumentNotFoundError') {
-        next(new NotFoundError('тест или пользователь не найден'));
+        next(new NotFoundError('Тест не найден'));
       } else if (err.name === 'ValidationError' || err.name === 'CastError') {
-        next(new BadRequestError('переданы некорректные данные в методы создания теста или пользователя'));
+        next(new BadRequestError('Переданы некорректные данные'));
+      } else if (err.name === 'UnauthorizedError') {
+        next(new UnauthorizedError('Недостаточно прав для удаления теста'));
+      } else {
+        next(err);
+      }
+    });
+};
+const getTestById = (req, res, next) => {
+  const id = req.params._id;
+  return Test.findById(id)
+    .orFail()
+    .then((test) => res.status(httpConstants.HTTP_STATUS_OK).send(test))
+    .catch((err) => {
+      if (err.name === 'DocumentNotFoundError') {
+        next(new NotFoundError('тест не найден'));
+      } else if (err.name === 'ValidationError' || err.name === 'CastError') {
+        next(new BadRequestError('переданы некорректные данные в метод'));
       } else {
         next(err);
       }
@@ -84,4 +106,5 @@ module.exports = {
   createTest,
   updateTestById,
   deleteTest,
+  getTestById
 };

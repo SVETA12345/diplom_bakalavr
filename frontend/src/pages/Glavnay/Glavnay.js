@@ -1,10 +1,10 @@
 import "./Glavnay.css";
 import { Link } from "react-router-dom";
-import Header from "../Header/Header";
+import Header from "../../components/Header/Header";
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from "react";
 import { testsApi } from "../../utils/testsApi";
-import OptionCard from "../OptionCard/OptionCard";
+import OptionCard from "../../components/OptionCard/OptionCard";
 import {
   Card,
   CardContent,
@@ -24,16 +24,11 @@ function Glavnay(props) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [testsData, setTestsData] = useState([]);
-  useEffect(() => {
-    testsApi.getTests().then((data) => {
-      console.log(data);
-      setTestsData(data);
-      dispatch({
-        type: "SAVE_TESTS",
-        payload: data,
-      });
-    });
-  }, []);
+  
+  const handleTestsClick = (testId) => {
+    console.log("Открыть тест:", testId);
+    navigate('/tests_list')
+  };
   const stats = [
     {
       title: "Всего тестов",
@@ -41,6 +36,7 @@ function Glavnay(props) {
       subtitle: "активных тестов",
       icon: <QuestionAnswer className="stat-icon" />,
       color: "#1976d2",
+      onClick: handleTestsClick
     },
     {
       title: "Ответы",
@@ -48,6 +44,7 @@ function Glavnay(props) {
       subtitle: "полученных ответов",
       icon: <QuestionAnswer className="stat-icon" />,
       color: "#2e7d32",
+      onClick: ()=>{}
     },
     {
       title: "Статистика",
@@ -55,6 +52,7 @@ function Glavnay(props) {
       subtitle: "посмотреть статистику",
       icon: <Assessment className="stat-icon" />,
       color: "#ed6c02",
+      onClick: ()=>{}
     },
   ];
 
@@ -64,10 +62,15 @@ function Glavnay(props) {
     // Здесь будет логика создания теста
   };
 
-  const handleTestClick = (testId) => {
-    console.log("Открыть тест:", testId);
-    // Навигация к тесту
-  };
+  useEffect(() => {
+    testsApi.getTests().then((data) => {
+      setTestsData(data);
+      dispatch({
+        type: "SAVE_TESTS",
+        payload: data,
+      });
+    });
+  }, []);
 
   return (
     <div>

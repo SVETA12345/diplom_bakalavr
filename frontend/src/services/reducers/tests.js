@@ -1,6 +1,6 @@
-import { SAVE_TESTS } from '../actions/tests'
+import { SAVE_TESTS, UPDATE_TESTS } from '../actions/tests'
 const initialState = {
-  tests: []
+  tests: [],
 };
 
 export const testsReducer = (state = initialState, action) => {
@@ -11,7 +11,15 @@ export const testsReducer = (state = initialState, action) => {
         tests: action.payload
       };
     }
-    
+    case UPDATE_TESTS:{
+        return {
+            ...state,
+            tests: state.tests.map((t) =>{
+                if (t._id==action.payload._id) return action.payload
+                else return t
+            })
+        }
+    }
     default: {
       return state;
     }

@@ -28,6 +28,36 @@ class Api{
             return this._getResponseData(res)
         })
     }
+    getTestById(testId){
+        return fetch(`${this._url}/tests/${testId}`, {
+            method: 'GET',
+            credentials: 'include',
+            withCredentials: true,
+            headers: this._headers,
+          }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
+    getTestLink(testId){
+        return fetch(`${this._url}/qr/test-link/${testId}`, {
+            method: 'GET',
+            credentials: 'include',
+            withCredentials: true,
+            headers: this._headers,
+          }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
+    getTestQr(testId){
+        return fetch(`${this._url}/qr/generate-qr/${testId}`, {
+            method: 'GET',
+            credentials: 'include',
+            withCredentials: true,
+            headers: this._headers,
+          }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
     addTest(test){
         return fetch(`${this._url}/tests/`, {
             method: 'POST',
@@ -47,6 +77,16 @@ class Api{
             headers: this._headers,
             body: JSON.stringify(test)
           }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
+    deleteTest(testId){
+        return fetch(`${this._url}/tests/${testId}`, {
+            method:"DELETE",
+            withCredentials: true,
+            credentials: 'include',
+            headers:this._headers
+        }).then((res)=>{
             return this._getResponseData(res)
         })
     }
