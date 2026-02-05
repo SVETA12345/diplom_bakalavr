@@ -1,7 +1,6 @@
 const userRoutes = require('./users');
 const testRouters = require('./tests');
 const questionRouters = require('./questions');
-const qrRoutes = require('./qrRoutes');
 
 const httpConstants = require('http2').constants;
 const { auth } = require('../middlewares/auth');
@@ -18,7 +17,6 @@ module.exports = function (app) {
   app.use('/api/users', userRoutes);
   app.use('/api/tests', testRouters);
   app.use('/api/questions', questionRouters);
-  app.use('/api/qr', qrRoutes);
   app.post('/api/signout', (req, res) => {
     res.status(200).clearCookie('jwt', { httpOnly: true, sameSite: 'None', secure: true, domain: '.movies-explorer.nomoreparties.co'}).send({ message: 'exit' });
     res.end();

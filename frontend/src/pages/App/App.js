@@ -5,14 +5,16 @@ import Registr from '../Registr/Registr';
 import Glavnay from '../Glavnay/Glavnay'
 import Login from '../Login/Login'
 import { useSelector } from 'react-redux';
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import TestEditor from '../TestEditor/TestEditor'
 import TestListPage from '../TestListPage/TestListPage';
-
+import QuestionsStudent from '../QuestionsStudent/QuestionsStudent';
 import * as duckAuth from '../../utils/authApi'
 import ProtectedRoute from '../../components/ProtectedRoute/ProtectedRoute';
-import { createUser, loginUser } from '../../services/actions/user';
+import { loginUser } from '../../services/actions/user';
+import PublicTestPage from '../PublicTestPage/PublicTestPage';
+
 function App() {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -30,7 +32,7 @@ function App() {
               isAuthenticated: true
             })
           )
-          navigate('/glavnay')
+          //navigate('/glavnay')
         }
       }).catch((err)=> console.log(err))
       
@@ -41,8 +43,10 @@ function App() {
         <div className='page'>
           
             <Routes>
-              <Route path="/" element={<Main />} />
+              <Route path="/test_take/:testId" element={<PublicTestPage />} />
+              <Route path="/test_take/:testId/start" element={<QuestionsStudent />} />
                <Route path="/signup" element={<Registr />} />
+               <Route path="/signin" element={<Login />} />
                <Route path="/signin" element={<Login />} />
                <Route 
                 path="/glavnay" 

@@ -1,7 +1,7 @@
 import './Login.css';
 import { Link, useNavigate } from 'react-router-dom'; 
 import Header from '../../components/Header/Header'
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   TextField,
   Button,
@@ -27,6 +27,7 @@ function Login(props) {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return emailRegex.test(email);
   };
+  
   const handleSaveRegistr = (e) => {
     duckAuth.authorize(loginData, setIsDisabled).then((data)=>{
         const user = data.admin
@@ -47,6 +48,26 @@ function Login(props) {
     ).catch((err) => console.log(err))
     setIsDisabled(false)
   }
+
+  useEffect(()=>{
+    duckAuth.getContent().then((user)=>{
+      if (user.name){
+        dispatch(loginUser({
+              name: user.name,
+              surname: user.surname,
+              patronomic: user.patronomic,
+              department: user.department,
+              email: user.email,
+              role: user.role,
+              password: user.password,
+              isAuthenticated: true
+            })
+          )
+          navigate('/glavnay')
+        }
+      }).catch((err)=> console.log(err))
+      
+  }, [])
 
   return (
       <div >
