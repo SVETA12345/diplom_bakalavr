@@ -16,27 +16,8 @@ import { loginUser } from '../../services/actions/user';
 import PublicTestPage from '../PublicTestPage/PublicTestPage';
 
 function App() {
-  const dispatch = useDispatch();
-  const navigate = useNavigate();
-  useEffect(()=>{
-    duckAuth.getContent().then((user)=>{
-      if (user.name){
-        dispatch(loginUser({
-              name: user.name,
-              surname: user.surname,
-              patronomic: user.patronomic,
-              department: user.department,
-              email: user.email,
-              role: user.role,
-              password: user.password,
-              isAuthenticated: true
-            })
-          )
-          //navigate('/glavnay')
-        }
-      }).catch((err)=> console.log(err))
-      
-  }, [])
+  
+  
   const isLoggedIn = useSelector(state => state.user.isAuthenticated);
   return (
     <div className="App">

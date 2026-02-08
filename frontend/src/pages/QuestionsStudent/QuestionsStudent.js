@@ -19,6 +19,8 @@ import {
 import { Alert } from "@material-ui/lab";
 import { makeStyles } from '@material-ui/core/styles';
 import { useParams, useNavigate } from 'react-router-dom';
+import { testsApi } from '../../utils/testsApi';
+import { questionsApi } from '../../utils/questionsApi';
 
 const useStyles = makeStyles((theme) => ({
   root: {
@@ -94,26 +96,17 @@ const QuestionsStudent = () => {
   }, [timeLeft, test]);
 
   const fetchTestData = async () => {
-    try {
-      const response = await fetch(`/api/tests/${testId}`);
-      const data = await response.json();
-      setTest(data);
-      if (data.duration > 0) {
-        setTimeLeft(data.duration * 60); // конвертируем минуты в секунды
-      }
-    } catch (error) {
-      console.error('Error fetching test:', error);
-    }
+    testsApi.getTestById(testId).then((data)=>{
+        setTest(data);
+        if (data.duration > 0) {
+            setTimeLeft(data.duration * 60); // конвертируем минуты в секунды
+        }
+    }).catch(err => navigate(`/test_take/${testId}`))
   };
 
   const fetchQuestions = async () => {
-    try {
-      const response = await fetch(`/api/questions?testId=${testId}`);
-      const data = await response.json();
-      setQuestions(data.sort((a, b) => a.order - b.order));
-    } catch (error) {
-      console.error('Error fetching questions:', error);
-    }
+    questionsApi.getQuestions(testId).then(data => setQuestions(data.sort((a, b) => a.order - b.order)))
+    .catch(err => console.log(err))
   };
 
   const handleAnswerChange = (questionId, value) => {
@@ -150,6 +143,7 @@ const QuestionsStudent = () => {
 
   const handleSubmitTest = async () => {
     setIsSubmitting(true);
+    console.log('answers', answers)
     try {
       const response = await fetch('/api/test-submissions', {
         method: 'POST',

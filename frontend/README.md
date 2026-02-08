@@ -1,70 +1,109 @@
-# Getting Started with Create React App
+# Frontend
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+React-приложение для системы тестирования с использованием Material-UI.
 
-## Available Scripts
+## Описание проекта
 
-In the project directory, you can run:
+Фронтенд часть веб-приложения для создания и прохождения тестов. Включает в себя:
+- Аутентификацию пользователей
+- Создание и редактирование тестов
+- Прохождение тестов
+- Публичный доступ к тестам по QR-коду
 
-### `npm start`
+## Технологии
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+- **React 17** - JavaScript библиотека для построения пользовательских интерфейсов
+- **Material-UI 4** - Библиотека компонентов React
+- **React Router 6** - Маршрутизация в приложении
+- **Redux** - Управление состоянием приложения
+- **React Bootstrap** - Дополнительные UI компоненты
+- **QRCode** - Генерация QR-кодов
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+## Установка и запуск
 
-### `npm test`
+### Предварительные требования
+- Node.js (версия 14 или выше)
+- npm
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Установка зависимостей
+```bash
+npm install
+```
 
-### `npm run build`
+### Запуск приложения
+```bash
+npm start
+```
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+Приложение будет доступно по адресу `http://localhost:3000`
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Сборка для продакшена
+```bash
+npm run build
+```
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Запуск тестов
+```bash
+npm test
+```
 
-### `npm run eject`
+## Структура проекта
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+```
+src/
+├── components/          # Переиспользуемые компоненты
+│   ├── CreateQuestionForm/
+│   ├── DialogQr/
+│   ├── Header/
+│   ├── LoginForm/
+│   ├── Main/
+│   ├── ModalStatus/
+│   ├── OptionCard/
+│   ├── OverviewFeatures/
+│   ├── ProtectedRoute/
+│   ├── QuestionsList/
+│   ├── RegisterForm/
+│   ├── SnackbarCustom/
+│   └── TestsFilter/
+├── pages/               # Страницы приложения
+│   ├── App/
+│   ├── Glavnay/
+│   ├── Login/
+│   ├── PublicTestPage/
+│   ├── QuestionsStudent/
+│   ├── Registr/
+│   ├── TestEditor/
+│   └── TestListPage/
+├── services/            # Redux store
+│   ├── actions/
+│   └── reducers/
+├── utils/               # API утилиты
+│   ├── authApi.js
+│   ├── questionsApi.js
+│   └── testsApi.js
+├── images/              # Изображения
+├── App.css
+├── index.css
+├── index.js
+└── setupTests.js
+```
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+## Основные функции
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+- **Аутентификация**: Регистрация и вход пользователей
+- **Управление тестами**: Создание, редактирование и удаление тестов
+- **Вопросы**: Добавление различных типов вопросов к тестам
+- **Прохождение тестов**: Интерфейс для прохождения созданных тестов
+- **Публичные тесты**: Доступ к тестам по QR-коду без регистрации
+- **Фильтрация**: Поиск и фильтрация тестов
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+## Скрипты
 
-## Learn More
+- `npm start` - Запуск development сервера
+- `npm run build` - Сборка production версии
+- `npm test` - Запуск тестов
+- `npm run eject` - Извлечение конфигурации (необратимо)
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+## Лицензия
 
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+Проект является учебным/дипломным проектом.(https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
