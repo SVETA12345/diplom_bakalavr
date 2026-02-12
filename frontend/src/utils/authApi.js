@@ -22,6 +22,7 @@ export const register = ( data, setIsDisabled) => {
     body: JSON.stringify(data)
   })
   .then((response) => {
+    setIsDisabled(false)
       return getResponseData(response)
     
   })
@@ -40,7 +41,7 @@ export const authorize = (loginData, setIsDisabled) => {
       body: JSON.stringify(loginData)
     })
     .then((response) => {
-      console.log(response) 
+      setIsDisabled(false)
       return getResponseData(response)
     })
     .then((data) => {

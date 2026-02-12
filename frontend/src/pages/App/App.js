@@ -14,11 +14,13 @@ import * as duckAuth from '../../utils/authApi'
 import ProtectedRoute from '../../components/ProtectedRoute/ProtectedRoute';
 import { loginUser } from '../../services/actions/user';
 import PublicTestPage from '../PublicTestPage/PublicTestPage';
+import TestResults from '../TestResults/TestResults';
 
 function App() {
   
   
   const isLoggedIn = useSelector(state => state.user.isAuthenticated);
+  
   return (
     <div className="App">
         <div className='page'>
@@ -26,9 +28,10 @@ function App() {
             <Routes>
               <Route path="/test_take/:testId" element={<PublicTestPage />} />
               <Route path="/test_take/:testId/start" element={<QuestionsStudent />} />
+              <Route path="/test-results/:attemptId" element={<TestResults />} />
                <Route path="/signup" element={<Registr />} />
                <Route path="/signin" element={<Login />} />
-               <Route path="/signin" element={<Login />} />
+               
                <Route 
                 path="/glavnay" 
                 element={

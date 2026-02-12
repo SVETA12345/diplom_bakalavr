@@ -1,6 +1,7 @@
 const userRoutes = require('./users');
 const testRouters = require('./tests');
 const questionRouters = require('./questions');
+const attemptRouters = require('./attempts');
 
 const httpConstants = require('http2').constants;
 const { auth } = require('../middlewares/auth');
@@ -14,6 +15,7 @@ module.exports = function (app) {
   app.post('/api/signin', loginValidate, login);
   app.post('/api/signup', createUserValidate, createUser);
   app.use(auth);
+  app.use('/api/attempts', attemptRouters);
   app.use('/api/users', userRoutes);
   app.use('/api/tests', testRouters);
   app.use('/api/questions', questionRouters);
