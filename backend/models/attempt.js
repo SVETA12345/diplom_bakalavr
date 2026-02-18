@@ -8,6 +8,17 @@ const attemptSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  studentName: {
+    type: String,
+    required: true,
+  },
+  studentSurname: {
+    type: String,
+    required: true,
+  },
+  studentGroup: {
+    type: String,
+  },
   testId: {
     type: String,
     required: true,
@@ -30,6 +41,9 @@ const attemptSchema = new mongoose.Schema({
   passed: {
     type: Boolean
   },         // прошел ли порог passingScore
+  maxPossibleScore: {
+    type: Number
+  },
     // Все ответы с результатами проверки в одном месте
   answers: [{
     questionId: {

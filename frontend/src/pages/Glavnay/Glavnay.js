@@ -29,6 +29,9 @@ function Glavnay(props) {
     console.log("Открыть тест:", testId);
     navigate('/tests_list')
   };
+   const handleAnswersTests = (e) => {
+    navigate('/tests-results')
+  }
   const stats = [
     {
       title: "Всего тестов",
@@ -44,7 +47,7 @@ function Glavnay(props) {
       subtitle: "полученных ответов",
       icon: <QuestionAnswer className="stat-icon" />,
       color: "#2e7d32",
-      onClick: ()=>{}
+      onClick: handleAnswersTests
     },
     {
       title: "Статистика",
@@ -56,6 +59,7 @@ function Glavnay(props) {
     },
   ];
 
+ 
   const handleCreateTest = () => {
     console.log("Создать новый тест");
     navigate('/test_editor')

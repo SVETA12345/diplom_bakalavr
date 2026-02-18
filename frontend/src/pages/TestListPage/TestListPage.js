@@ -20,6 +20,7 @@ import Header from '../../components/Header/Header';
 import SearchIcon from '@material-ui/icons/Search';
 import ShareIcon from '@material-ui/icons/Share';
 import DeleteIcon from '@material-ui/icons/Delete';
+import AssessmentIcon from '@material-ui/icons/Assessment';
 import AccessTimeIcon from '@material-ui/icons/AccessTime';
 import CheckCircleIcon from '@material-ui/icons/CheckCircle';
 import AddIcon from '@material-ui/icons/Add';
@@ -339,6 +340,17 @@ const TestListPage = () => {
 
                   {/* Действия */}
                   <Box className={classes.testActions}>
+                    <IconButton
+                      size="small"
+                      title="Просмотреть результаты"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/test-results-teacher/${test._id}`);
+                      }}
+                      style={{ color: '#7b1fa2' }}
+                    >
+                      <AssessmentIcon fontSize="small" />
+                    </IconButton>
                     <IconButton
                       size="small"
                       title="Копировать ссылку"

@@ -39,6 +39,27 @@ class Api{
             return this._getResponseData(res)
         })
     }
+    getAttemptsByTestId(testId){
+        return fetch(`${this._url}/attempts/test/${testId}`, {
+            method: 'GET',
+            credentials: 'include',
+            withCredentials: true,
+            headers: this._headers,
+          }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
+    updateAttempt(attempt){
+        return fetch(`${this._url}/attempts`, {
+            method: 'PATCH',
+            withCredentials: true,
+            credentials: 'include',
+            headers: this._headers,
+            body: JSON.stringify(attempt)
+          }).then((res)=>{
+            return this._getResponseData(res)
+        })
+    }
 }
 
 export const attemptsApi = new Api({

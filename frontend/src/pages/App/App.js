@@ -15,6 +15,8 @@ import ProtectedRoute from '../../components/ProtectedRoute/ProtectedRoute';
 import { loginUser } from '../../services/actions/user';
 import PublicTestPage from '../PublicTestPage/PublicTestPage';
 import TestResults from '../TestResults/TestResults';
+import TeacherTestResults from '../TeacherTestResults/TeacherTestResults';
+import TestResultsTeacher from '../TestResultsTeacher/TestResultsTeacher';
 
 function App() {
   
@@ -26,9 +28,20 @@ function App() {
         <div className='page'>
           
             <Routes>
+              <Route path="/" element={<Main />} />
               <Route path="/test_take/:testId" element={<PublicTestPage />} />
               <Route path="/test_take/:testId/start" element={<QuestionsStudent />} />
               <Route path="/test-results/:attemptId" element={<TestResults />} />
+              <Route path="/tests-results" element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                  <TestResultsTeacher />
+                </ProtectedRoute>
+              } />
+              <Route path="/test-results-teacher/:testId" element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                  <TeacherTestResults />
+                </ProtectedRoute>
+              } />
                <Route path="/signup" element={<Registr />} />
                <Route path="/signin" element={<Login />} />
                

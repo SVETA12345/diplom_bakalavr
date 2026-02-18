@@ -6,7 +6,7 @@ import { useSelector } from 'react-redux';
 import './Main.css'
 
 function Main(props) {
-    const isLoggedIn = useSelector(state => state.isAuthenticated);
+    const isLoggedIn = useSelector(state => state.user.isAuthenticated);
     const bottomRef = useRef(null);
     const scrollToBottom = (e) => {
         bottomRef.current?.scrollIntoView({ behavior: 'smooth' });

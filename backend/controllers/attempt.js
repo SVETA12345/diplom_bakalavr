@@ -2,6 +2,7 @@ const ForbiddenError = require('../errors/forbidden-error');
 const Question = require('../models/question');
 const Attempt = require('../models/attempt')
 const Test = require('../models/test')
+const User = require('../models/user')
 const httpConstants = require('http2').constants;
 const NotFoundError = require('../errors/not-found-err');
 const BadRequestError = require('../errors/bad-request-error');
@@ -14,6 +15,38 @@ const getAttempt = (req, res, next) => {
     .catch((err) => {
       if (err.name === 'DocumentNotFoundError') {
         next(new NotFoundError('тест или пользователь не найден'));
+      } else if (err.name === 'ValidationError' || err.name === 'CastError') {
+        next(new BadRequestError('переданы некорректные данные'));
+      } else {
+        next(err);
+      }
+    });
+};
+//возвращаем все попытки теста
+const getAttemptsByTest = (req, res, next) => {
+  const testId = req.params.testId;
+  Attempt.find({ testId })
+    .then((attempts) => res.status(httpConstants.HTTP_STATUS_OK).send(attempts))
+    .catch((err) => {
+      if (err.name === 'DocumentNotFoundError') {
+        next(new NotFoundError('тест или пользователь не найден'));
+      } else if (err.name === 'ValidationError' || err.name === 'CastError') {
+        next(new BadRequestError('переданы некорректные данные'));
+      } else {
+        next(err);
+      }
+    });
+};
+const updateAttemptById = (req, res, next) => {
+  const attemptId = req.body._id;
+  Attempt.findByIdAndUpdate(attemptId, req.body, { new: true, runValidators: true })
+    .orFail()
+    .then((attempt) => res.send(attempt))
+    .catch((err) => {
+      if (err.code === 11000) {
+        next(new ConflictError('Вопрос уже существеут'));
+      } else if (err.name === 'DocumentNotFoundError') {
+        next(new NotFoundError('попытка не найдена'));
       } else if (err.name === 'ValidationError' || err.name === 'CastError') {
         next(new BadRequestError('переданы некорректные данные'));
       } else {
@@ -84,8 +117,11 @@ const createAttempt = (req, res, next) => {
   const { answers, startedAt, totalTimeSpent } = req.body;
   const { testId } = req.params;
   const userId = req.user._id; // Из аутентификации
-  
-  gradeAndCreateSubmission(userId, testId, answers, startedAt, totalTimeSpent)
+  User.findById(userId)
+  .orFail()
+  .then((user)=>{
+    console.log('user', user)
+    gradeAndCreateSubmission(user, testId, answers, startedAt, totalTimeSpent)
     .then((createdSubmission) => {
       res.status(201).send({
         message: 'Попытка создана и проверена',
@@ -93,9 +129,19 @@ const createAttempt = (req, res, next) => {
       });
     })
     .catch(next);
+  })
+  .catch((err) => {
+      if (err.name === 'DocumentNotFoundError') {
+        next(new NotFoundError('пользователь не найден'));
+      } else if (err.name === 'ValidationError' || err.name === 'CastError') {
+        next(new BadRequestError('переданы некорректные данные в методы создания пользователя'));
+      } else {
+        next(err);
+      }
+    });
 };
 
-const gradeAndCreateSubmission = (userId, testId, answers, startedAt, totalTimeSpent) => {
+const gradeAndCreateSubmission = (user, testId, answers, startedAt, totalTimeSpent) => {
   let test, questions;
   let totalScore = 0;
   let maxPossibleScore = 0;
@@ -151,7 +197,7 @@ const gradeAndCreateSubmission = (userId, testId, answers, startedAt, totalTimeS
       });
       
       // 4. Определяем номер попытки
-      return Attempt.countDocuments({ studentId:userId, testId })
+      return Attempt.countDocuments({ studentId:user._id, testId })
         .then((count) => {
           const attemptNumber = count + 1;
           // 5. Проверяем лимит попыток
@@ -163,11 +209,13 @@ const gradeAndCreateSubmission = (userId, testId, answers, startedAt, totalTimeS
           const percentage = (totalScore / maxPossibleScore) * 100;
           const isPassed = percentage >= test.passingScore;
           //const status = allGraded ? 'graded' : 'partially_graded';
-          console.log('percentage', percentage)
           // 7. Создаем новую попытку
           const startedAtDate = new Date(startedAt); 
           return Attempt.create({
-            studentId: userId,
+            studentId: user._id,
+            studentName: user.name || '',
+            studentSurname: user.surname || '',
+            studentGroup: user.group || '',
             testId,
             attemptNumber,
             answers: processedAnswers,
@@ -175,7 +223,7 @@ const gradeAndCreateSubmission = (userId, testId, answers, startedAt, totalTimeS
             finishedAt: new Date(startedAtDate.getTime() + totalTimeSpent * 1000),
             totalTimeSpent,
             totalScore,
-            //maxPossibleScore,
+            maxPossibleScore,
             percentage: percentage,
             passed: isPassed,
           });
@@ -194,5 +242,7 @@ const gradeAndCreateSubmission = (userId, testId, answers, startedAt, totalTimeS
 };
 module.exports={
     createAttempt,
-    getAttempt
+    getAttempt,
+    getAttemptsByTest,
+    updateAttemptById
 }
