@@ -14,7 +14,6 @@ const initialState = {
   email: '',
   password: '',
   isAuthenticated: false,
-  token: '',
   role: ''
 };
 

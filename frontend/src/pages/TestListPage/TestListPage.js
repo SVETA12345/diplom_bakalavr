@@ -342,17 +342,6 @@ const TestListPage = () => {
                   <Box className={classes.testActions}>
                     <IconButton
                       size="small"
-                      title="Просмотреть результаты"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/test-results-teacher/${test._id}`);
-                      }}
-                      style={{ color: '#7b1fa2' }}
-                    >
-                      <AssessmentIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
                       title="Копировать ссылку"
                       onClick={(e) => handleShareTest(test._id, e)}
                       style={{ color: '#2e7d32' }}

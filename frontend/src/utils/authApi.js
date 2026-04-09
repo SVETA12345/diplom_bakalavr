@@ -67,3 +67,89 @@ export const authorize = (loginData, setIsDisabled) => {
     })
     .then(data => data)
   } 
+
+  export const updateUserData = (user) => {
+    return fetch(`${BASE_URL}/users/me`, {
+      method: 'PATCH',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(user)
+    })
+    .then((res) => {
+      return getResponseData(res) 
+    })
+    .then(data => data)
+  } 
+
+  export const logout = () => {
+        return fetch(`${BASE_URL}/signout`, {
+            method: "POST",
+            withCredentials: true,
+            credentials: 'include', // <--- YOU NEED THIS LINE
+            headers:  {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+          }).then((res) => {
+              return getResponseData(res) 
+          })
+    }
+
+export const sendResetCode = (email) => {
+  return fetch(`${BASE_URL}/send-reset-code`, {
+    method: 'POST',
+    withCredentials: true,
+    credentials: 'include', 
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email })
+  }).then((res) => {
+              return getResponseData(res) 
+          })
+};
+
+export const verifyCodeAndResetPassword = (email, code, newPassword) => {
+  return fetch(`${BASE_URL}/verify-reset-code`, {
+    method: 'POST',
+    withCredentials: true,
+    credentials: 'include', 
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ email, code, newPassword })
+  }).then((res) => {
+              return getResponseData(res) 
+          })
+};
+
+export const authorizeWithTwoFactor = (loginData, setIsDisabled) => {
+  return fetch(`${BASE_URL}/signin`, {
+    method: 'POST',
+    withCredentials: true,
+    credentials: 'include', 
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(loginData)
+  }).then((res) => {
+              return getResponseData(res) 
+          })
+};
+
+export const resendTwoFactorCode = (email) => {
+    return fetch(`${BASE_URL}/send-twofactor-code`, {
+        method: 'POST',
+        withCredentials: true,
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ email })
+    }).then((res) => {
+        return getResponseData(res);
+    });
+};

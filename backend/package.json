@@ -27,6 +27,7 @@
     "jsonwebtoken": "^9.0.1",
     "mongoose": "^7.4.1",
     "multer": "^2.0.2",
+    "nodemailer": "^8.0.4",
     "qrcode": "^1.5.4",
     "validator": "^13.9.0",
     "winston": "^3.10.0"

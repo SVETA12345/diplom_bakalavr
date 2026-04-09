@@ -43,19 +43,11 @@ function Glavnay(props) {
     },
     {
       title: "Ответы",
-      value: "73",
+      value: "",
       subtitle: "полученных ответов",
       icon: <QuestionAnswer className="stat-icon" />,
       color: "#2e7d32",
       onClick: handleAnswersTests
-    },
-    {
-      title: "Статистика",
-      value: "1",
-      subtitle: "посмотреть статистику",
-      icon: <Assessment className="stat-icon" />,
-      color: "#ed6c02",
-      onClick: ()=>{}
     },
   ];
 
@@ -100,7 +92,7 @@ function Glavnay(props) {
             Обзор
           </Typography>
           <Typography variant="subtitle1" className="dashboard-subtitle">
-            Управляйте тестами и шаблонами
+            Управляйте тестами
           </Typography>
         </Box>
 

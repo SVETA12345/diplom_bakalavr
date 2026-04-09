@@ -17,6 +17,7 @@ import PublicTestPage from '../PublicTestPage/PublicTestPage';
 import TestResults from '../TestResults/TestResults';
 import TeacherTestResults from '../TeacherTestResults/TeacherTestResults';
 import TestResultsTeacher from '../TestResultsTeacher/TestResultsTeacher';
+import ProfilePage from '../ProfilePage/ProfilePage';
 
 function App() {
   
@@ -35,6 +36,11 @@ function App() {
               <Route path="/tests-results" element={
                 <ProtectedRoute isLoggedIn={isLoggedIn}>
                   <TestResultsTeacher />
+                </ProtectedRoute>
+              } />
+              <Route path="/lk" element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                  <ProfilePage />
                 </ProtectedRoute>
               } />
               <Route path="/test-results-teacher/:testId" element={

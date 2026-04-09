@@ -59,16 +59,6 @@ class Api{
             return this._getResponseData(res)
         })
     }
-    exitPage(){
-        return fetch(`${this._url}/signout`, {
-            method: "POST",
-            withCredentials: true,
-            credentials: 'include', // <--- YOU NEED THIS LINE
-            headers: this._headers,
-          }).then((res)=>{
-            return this._getResponseData(res)
-        })
-    }
 }
 
 export const questionsApi = new Api({
