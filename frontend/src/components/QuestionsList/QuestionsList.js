@@ -6,7 +6,8 @@ import {
 import EditIcon from '@material-ui/icons/Edit';
 import DeleteIcon from '@material-ui/icons/Delete';
 
-const QuestionsList = ({testId, questions, handleShowModalQuestion, handleDeleteQuestion, handleSaveUpdateQuestion}) => {
+
+const QuestionsList = ({testId, questions, handleShowModalQuestion, handleDeleteQuestion, handleSaveUpdateQuestion,  FormComponent = CreateQuestionForm}) => {
     return (
          <List>
           {questions.map((q, idx) => {
@@ -24,7 +25,7 @@ const QuestionsList = ({testId, questions, handleShowModalQuestion, handleDelete
               </IconButton>
             </ListItem>
           ) : (
-             <CreateQuestionForm 
+             <FormComponent 
              key={q._id}
              questionOriginal={q}
             testId={testId}

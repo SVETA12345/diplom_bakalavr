@@ -1,5 +1,8 @@
 const userRoutes = require('./users');
 const testRouters = require('./tests');
+const surveyAttenptRouters = require('./surveyAttempt');
+const surveyRouters = require('./surveys');
+const surveyQuestionsRouters = require('./surveyQuestion');
 const questionRouters = require('./questions');
 const attemptRouters = require('./attempts');
 
@@ -26,6 +29,9 @@ module.exports = function (app) {
   app.use('/api/attempts', attemptRouters);
   app.use('/api/users', userRoutes);
   app.use('/api/tests', testRouters);
+  app.use('/api/surveys', surveyRouters);
+  app.use('/api/surveyQuestions', surveyQuestionsRouters);
+  app.use('/api/attemptsSurvey', surveyAttenptRouters);
   app.use('/api/questions', questionRouters);
   app.post('/api/signout', (req, res) => {
     res.status(200).clearCookie('jwt', { httpOnly: true, sameSite: 'None', secure: true, 

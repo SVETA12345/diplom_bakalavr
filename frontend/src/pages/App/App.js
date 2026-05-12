@@ -18,6 +18,9 @@ import TestResults from '../TestResults/TestResults';
 import TeacherTestResults from '../TeacherTestResults/TeacherTestResults';
 import TestResultsTeacher from '../TestResultsTeacher/TestResultsTeacher';
 import ProfilePage from '../ProfilePage/ProfilePage';
+import SurveyEditor from '../SurveyEditor/SurveyEditor'
+import PublicSurveyPage from '../PublicSurveyPage/PublicSurveyPage'
+import SurveyQuestionsStudent from '../SurveyQuestionsStudent/SurveyQuestionsStudent';
 
 function App() {
   
@@ -31,7 +34,9 @@ function App() {
             <Routes>
               <Route path="/" element={<Main />} />
               <Route path="/test_take/:testId" element={<PublicTestPage />} />
+              <Route path="/survey_take/:surveyId" element={<PublicSurveyPage />} />
               <Route path="/test_take/:testId/start" element={<QuestionsStudent />} />
+              <Route path="/survey_take/:surveyId/start" element={<SurveyQuestionsStudent />} />
               <Route path="/test-results/:attemptId" element={<TestResults />} />
               <Route path="/tests-results" element={
                 <ProtectedRoute isLoggedIn={isLoggedIn}>
@@ -67,11 +72,27 @@ function App() {
               </ProtectedRoute>
             } 
           />
+           <Route 
+                path="/survey" 
+                element={
+                <ProtectedRoute isLoggedIn={isLoggedIn}>
+                    <SurveyEditor />
+              </ProtectedRoute>
+            } 
+          />
           <Route 
   path="tests/:testIdActive" 
   element={
     <ProtectedRoute isLoggedIn={isLoggedIn}>
       <TestEditor />
+    </ProtectedRoute>
+  } 
+/>
+<Route 
+  path="surveys/:surveyIdActive" 
+  element={
+    <ProtectedRoute isLoggedIn={isLoggedIn}>
+      <SurveyEditor />
     </ProtectedRoute>
   } 
 />

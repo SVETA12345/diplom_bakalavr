@@ -28,9 +28,9 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  AppBar,
   Toolbar,
-  Tooltip
+  Tooltip,
+  makeStyles
 } from '@material-ui/core';
 import {
   CheckCircle as CorrectIcon,
@@ -47,7 +47,51 @@ import { Alert } from '@material-ui/lab';
 import { AnswerRenderer } from '../TestResults/AnswerRenderer';
 import { formatTime, formatDate, getAnswerForQuestion } from '../TestResults/TestResults.utils';
 
+const useStyles = makeStyles((theme) => ({
+  root: {
+    padding: '20px',
+    marginTop: '20px',
+  },
+  answerContainer: {
+    marginTop: '10px',
+    padding: '12px',
+    backgroundColor: '#f5f5f5',
+    borderRadius: '8px',
+    wordWrap: 'break-word',
+    overflowWrap: 'break-word',
+  },
+  chartWrapper: {
+    position: 'relative',
+    width: '100%',
+    minHeight: '300px',
+    marginTop: '15px',
+    marginBottom: '15px',
+  },
+  chartContainer: {
+    position: 'relative',
+    height: '300px',
+    width: '100%',
+  },
+  questionCard: {
+    marginBottom: '15px',
+    overflow: 'visible', // Важно для графиков
+  },
+  expandableContent: {
+    marginTop: '15px',
+    paddingTop: '15px',
+    borderTop: '1px solid #e0e0e0',
+  },
+  statsGrid: {
+    marginBottom: '20px',
+  },
+  dialogContent: {
+    overflow: 'auto',
+    padding: '20px',
+  }
+}));
+
 const TeacherTestResults = () => {
+  const classes = useStyles();
   const { testId } = useParams();
   const navigate = useNavigate();
   
@@ -153,9 +197,9 @@ const TeacherTestResults = () => {
   }
 
   return (
-    <Container maxWidth="lg">
-      <Paper style={{ padding: '20px', marginTop: '20px' }}>
-        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+    <Container maxWidth="lg" style={{ paddingBottom: '40px' }}>
+      <Paper className={classes.root}>
+        <Box display="flex" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap">
           <Box>
             <Typography variant="h4" gutterBottom>
               Результаты теста
@@ -164,7 +208,7 @@ const TeacherTestResults = () => {
               {test?.name}
             </Typography>
           </Box>
-          <Box>
+          <Box mt={{ xs: 2, sm: 0 }}>
             <Button
               variant="contained"
               color="primary"
@@ -181,8 +225,8 @@ const TeacherTestResults = () => {
           </Typography>
         </Box>
 
-        <TableContainer>
-          <Table>
+        <TableContainer style={{ overflowX: 'auto' }}>
+          <Table style={{ minWidth: 600 }}>
             <TableHead>
               <TableRow>
                 <TableCell>№</TableCell>
@@ -201,7 +245,7 @@ const TeacherTestResults = () => {
                 .map((attempt, index) => {
                   const stats = calculateStats(attempt);
                   return (
-                    <TableRow key={attempt._id || index}>
+                    <TableRow key={attempt._id || index} hover>
                       <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                       <TableCell>
                         <Box display="flex" alignItems="center">
@@ -257,6 +301,7 @@ const TeacherTestResults = () => {
         />
       </Paper>
 
+      {/* Диалог просмотра ответов студента */}
       <Dialog
         open={dialogOpen}
         onClose={handleCloseDialog}
@@ -276,7 +321,7 @@ const TeacherTestResults = () => {
             </IconButton>
           </Box>
         </DialogTitle>
-        <DialogContent dividers>
+        <DialogContent className={classes.dialogContent}>
           {selectedAttempt && (
             <Box>
               <Paper variant="outlined" style={{ padding: '15px', marginBottom: '20px' }}>
@@ -320,17 +365,19 @@ const TeacherTestResults = () => {
                 const isExpanded = expandedQuestions[question._id] || false;
 
                 return (
-                  <Card
-                    key={question._id}
+                  <Card 
+                    key={question._id} 
+                    className={classes.questionCard}
                     style={{
-                      marginBottom: '15px',
-                      borderLeft: isCorrect ? '4px solid #4caf50' : '4px solid #f44336'
+                      borderLeft: isCorrect !== undefined 
+                        ? `4px solid ${isCorrect ? '#4caf50' : '#f44336'}`
+                        : '4px solid #2196f3'
                     }}
                   >
                     <CardContent>
-                      <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                        <Box flex={1}>
-                          <Box display="flex" alignItems="center" mb={1}>
+                      <Box display="flex" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap">
+                        <Box flex={1} style={{ minWidth: 0, width: '100%' }}>
+                          <Box display="flex" alignItems="center" flexWrap="wrap" mb={1}>
                             <Typography variant="subtitle1" style={{ fontWeight: 'bold' }}>
                               Вопрос {index + 1}
                             </Typography>
@@ -339,33 +386,97 @@ const TeacherTestResults = () => {
                                 size="small"
                                 icon={isCorrect ? <CorrectIcon /> : <IncorrectIcon />}
                                 label={isCorrect ? 'Верно' : 'Неверно'}
-                                style={{ marginLeft: '10px' }}
+                                style={{ marginLeft: '10px', marginTop: '5px' }}
                                 color={isCorrect ? 'primary' : 'secondary'}
                               />
                             )}
-                            <Chip
-                              size="small"
-                              label={`${answer?.awardedPoints || 0}/${answer?.maxPoints || 0} баллов`}
-                              style={{ marginLeft: '10px' }}
-                              variant="outlined"
-                            />
+                            {answer?.awardedPoints !== undefined && (
+                              <Chip
+                                size="small"
+                                label={`${answer?.awardedPoints || 0}/${answer?.maxPoints || 0} баллов`}
+                                style={{ marginLeft: '10px', marginTop: '5px' }}
+                                variant="outlined"
+                              />
+                            )}
                           </Box>
                           
-                          <Typography variant="body1" paragraph>
+                          <Typography variant="body1" paragraph style={{ wordWrap: 'break-word' }}>
                             {question.text}
                           </Typography>
                           
-                          <AnswerRenderer 
-                            question={question} 
-                            answer={answer} 
-                            classes={{}} 
-                          />
+                          {/* Контейнер для ответа с фиксированными стилями */}
+                          <div className={classes.answerContainer}>
+                            <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+                              Ответ студента:
+                            </Typography>
+                            <AnswerRenderer 
+                              question={question} 
+                              answer={answer} 
+                              classes={classes} 
+                            />
+                          </div>
+
+                          {/* Кнопка разворота для статистики */}
+                          <Box display="flex" justifyContent="flex-end" mt={1}>
+                            <IconButton
+                              onClick={() => handleToggleExpand(question._id)}
+                              size="small"
+                            >
+                              {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                              <Typography variant="caption" style={{ marginLeft: '4px' }}>
+                                {isExpanded ? 'Скрыть статистику' : 'Показать статистику'}
+                              </Typography>
+                            </IconButton>
+                          </Box>
+
+                          {/* Развернутый контент со статистикой */}
+                          <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                            <div className={classes.expandableContent}>
+                              <Typography variant="subtitle2" gutterBottom color="primary">
+                                Статистика по вопросу:
+                              </Typography>
+                              
+                              {/* Здесь можно добавить дополнительную статистику */}
+                              <Grid container spacing={2}>
+                                <Grid item xs={12} sm={6}>
+                                  <Paper variant="outlined" style={{ padding: '10px' }}>
+                                    <Typography variant="caption" color="textSecondary">
+                                      Процент правильных ответов
+                                    </Typography>
+                                    <Typography variant="h6">
+                                      {(() => {
+                                        if (!attempts.length) return '0%';
+                                        const correctCount = attempts.filter(a => {
+                                          const ans = getAnswerForQuestion(a, question._id);
+                                          return ans?.isCorrect === true;
+                                        }).length;
+                                        return `${Math.round((correctCount / attempts.length) * 100)}%`;
+                                      })()}
+                                    </Typography>
+                                  </Paper>
+                                </Grid>
+                                <Grid item xs={12} sm={6}>
+                                  <Paper variant="outlined" style={{ padding: '10px' }}>
+                                    <Typography variant="caption" color="textSecondary">
+                                      Средний балл
+                                    </Typography>
+                                    <Typography variant="h6">
+                                      {(() => {
+                                        const points = attempts.map(a => {
+                                          const ans = getAnswerForQuestion(a, question._id);
+                                          return ans?.awardedPoints || 0;
+                                        });
+                                        if (!points.length) return '0';
+                                        const avg = points.reduce((a, b) => a + b, 0) / points.length;
+                                        return avg.toFixed(1);
+                                      })()}
+                                    </Typography>
+                                  </Paper>
+                                </Grid>
+                              </Grid>
+                            </div>
+                          </Collapse>
                         </Box>
-                        <IconButton
-                          onClick={() => handleToggleExpand(question._id)}
-                        >
-                          {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                        </IconButton>
                       </Box>
                     </CardContent>
                   </Card>

@@ -39,17 +39,16 @@ import {
   ListItemText,
   ListItemIcon,
   Collapse,
+  InputAdornment,
   Radio,
   RadioGroup,
   FormControlLabel,
-  Checkbox,
-  Switch,
-  Badge,
-  InputAdornment
+  Badge  
 } from '@material-ui/core';
 import { Link } from "react-router-dom";
 import { useSelector } from 'react-redux';
 import Header from '../../components/Header/Header';
+import {surveyQuestionsApi} from '../../utils/surveyQuestionsApi'
 import {
   Assessment as AssessmentIcon,
   Person as PersonIcon,
@@ -61,7 +60,10 @@ import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   Clear as ClearIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Poll as PollIcon,
+  Timeline as TimelineIcon,
+  BarChart as BarChartIcon
 } from '@material-ui/icons';
 import { makeStyles } from '@material-ui/core/styles';
 import { Line, Bar, Doughnut } from 'react-chartjs-2';
@@ -79,6 +81,8 @@ import {
 } from 'chart.js';
 import { attemptsApi } from '../../utils/attemptsApi';
 import { questionsApi } from '../../utils/questionsApi';
+import { surveysApi } from '../../utils/surveysApi';
+import { attemptsSurveyApi } from '../../utils/attemptsSurveyApi';
 import TestStats from '../../components/TestStats/TestStats';
 
 // Регистрация компонентов ChartJS
@@ -95,6 +99,23 @@ ChartJS.register(
 );
 
 const useStyles = makeStyles((theme) => ({
+  chartWrapper: {
+    position: 'relative',
+    width: '100%',
+    minHeight: '320px',
+    marginTop: theme.spacing(2),
+    marginBottom: theme.spacing(2),
+  },
+  chartCanvas: {
+    position: 'relative',
+    width: '100%',
+    height: '320px',
+  },
+  // Добавьте для таблицы
+  tableWrapper: {
+    overflowX: 'auto',
+    width: '100%',
+  },
   root: {
     flexGrow: 1,
     backgroundColor: '#f5f5f5',
@@ -138,6 +159,10 @@ const useStyles = makeStyles((theme) => ({
   },
   errorChip: {
     backgroundColor: '#f44336',
+    color: 'white',
+  },
+  infoChip: {
+    backgroundColor: '#2196f3',
     color: 'white',
   },
   answerCorrect: {
@@ -197,24 +222,581 @@ const useStyles = makeStyles((theme) => ({
     textAlign: 'center',
     color: theme.palette.text.secondary,
   },
+  statisticCard: {
+    marginBottom: theme.spacing(2),
+  },
+  ratingBar: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#e0e0e0',
+    marginTop: 8,
+  },
+  ratingFill: {
+    height: '100%',
+    borderRadius: 4,
+    backgroundColor: theme.palette.primary.main,
+  }
 }));
 
-
-// Компонент детального просмотра ответов студента
-const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore }) => {
+// Компонент для отображения статистики по анкете
+// Компонент для отображения статистики по анкете (исправленная версия)
+// Компонент для отображения статистики по анкете (с поддержкой matrix)
+const SurveyStatistics = ({ survey, attempts, questions }) => {
   const classes = useStyles();
-  const [expandedQuestions, setExpandedQuestions] = useState({});
-  const [manualScores, setManualScores] = useState({});
+  const [statistics, setStatistics] = useState(null);
 
   useEffect(() => {
-    if (attempt && attempt.answers) {
-      const scores = {};
-      attempt.answers.forEach(answer => {
-        scores[answer.questionId] = answer.awardedPoints || 0;
-      });
-      setManualScores(scores);
+    if (attempts.length > 0 && questions.length > 0) {
+      calculateStatistics();
     }
-  }, [attempt]);
+  }, [attempts, questions]);
+
+  const calculateStatistics = () => {
+    const stats = {
+      totalResponses: attempts.length,
+      completedResponses: attempts.filter(a => a.isCompleted).length,
+      averageTimeSpent: attempts.reduce((sum, a) => sum + (a.totalTimeSpent || 0), 0) / attempts.length,
+      questionsStats: {}
+    };
+
+    questions.forEach(question => {
+      const answersForQuestion = attempts
+        .map(attempt => attempt.answers?.find(a => a.questionId === question._id))
+        .filter(a => a);
+
+      const questionStats = {
+        totalAnswers: answersForQuestion.length,
+        responseRate: (answersForQuestion.length / attempts.length) * 100,
+        type: question.type,
+        distribution: {},
+        averageRating: 0,
+        textAnswers: [],
+        // Для matrix вопросов
+        matrixData: null
+      };
+
+      switch (question.type) {
+        case 'rating':
+        case 'scale':
+          const ratings = answersForQuestion.map(a => a.ratingValue || 0).filter(r => r > 0);
+          if (ratings.length > 0) {
+            questionStats.averageRating = ratings.reduce((sum, r) => sum + r, 0) / ratings.length;
+          }
+          ratings.forEach(r => {
+            questionStats.distribution[r] = (questionStats.distribution[r] || 0) + 1;
+          });
+          break;
+
+        case 'choice':
+        case 'multiple_choice':
+          answersForQuestion.forEach(answer => {
+            if (answer.selectedOptions) {
+              answer.selectedOptions.forEach(opt => {
+                questionStats.distribution[opt.optionText] = (questionStats.distribution[opt.optionText] || 0) + 1;
+              });
+            }
+          });
+          break;
+
+        case 'boolean':
+          answersForQuestion.forEach(answer => {
+            const value = answer.userAnswer === true || answer.userAnswer === 'true' || answer.userAnswer === 'да' ? 'Да' : 'Нет';
+            questionStats.distribution[value] = (questionStats.distribution[value] || 0) + 1;
+          });
+          break;
+
+        case 'matrix':
+          // Обработка matrix вопросов
+          const matrixData = {
+            rows: question.matrixSettings?.rows || [],
+            columns: question.matrixSettings?.columns || [],
+            columnValues: question.matrixSettings?.columnValues || [],
+            responses: []
+          };
+          
+          // Собираем все ответы по матрице
+          answersForQuestion.forEach(answer => {
+            if (answer.matrixAnswers) {
+              matrixData.responses.push(answer.matrixAnswers);
+            } else if (answer.userAnswer && typeof answer.userAnswer === 'object') {
+              matrixData.responses.push(answer.userAnswer);
+            }
+          });
+          
+          // Анализируем распределение ответов для каждой строки
+          const rowStats = {};
+          matrixData.rows.forEach(row => {
+            rowStats[row] = {
+              distribution: {},
+              average: 0,
+              counts: {}
+            };
+            
+            // Собираем значения для этой строки
+            const rowValues = [];
+            matrixData.responses.forEach(response => {
+              if (response && response[row] !== undefined) {
+                const value = response[row];
+                rowValues.push(value);
+                rowStats[row].distribution[value] = (rowStats[row].distribution[value] || 0) + 1;
+              }
+            });
+            
+            // Вычисляем среднее
+            if (rowValues.length > 0) {
+              rowStats[row].average = rowValues.reduce((a, b) => a + b, 0) / rowValues.length;
+            }
+            
+            // Создаем counts для каждого столбца
+            matrixData.columns.forEach((col, idx) => {
+              const colValue = matrixData.columnValues[idx];
+              rowStats[row].counts[col] = rowStats[row].distribution[colValue] || 0;
+            });
+          });
+          
+          questionStats.matrixData = {
+            rows: matrixData.rows,
+            columns: matrixData.columns,
+            columnValues: matrixData.columnValues,
+            rowStats: rowStats,
+            totalResponses: matrixData.responses.length
+          };
+          break;
+
+        case 'text_short':
+        case 'text_long':
+          questionStats.textAnswers = answersForQuestion
+            .map(a => a.textAnswer || a.userAnswer)
+            .filter(t => t && t.trim());
+          break;
+      }
+
+      stats.questionsStats[question._id] = questionStats;
+    });
+
+    setStatistics(stats);
+  };
+
+  const getChartDataForQuestion = (question) => {
+    const stats = statistics?.questionsStats[question._id];
+    if (!stats) return null;
+
+    switch (question.type) {
+      case 'rating':
+      case 'scale':
+        const ratingData = Object.entries(stats.distribution)
+          .sort((a, b) => Number(a[0]) - Number(b[0]));
+        return {
+          labels: ratingData.map(([rating]) => `${rating}`),
+          datasets: [{
+            label: 'Количество ответов',
+            data: ratingData.map(([, count]) => count),
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgb(54, 162, 235)',
+            borderWidth: 1
+          }]
+        };
+
+      case 'choice':
+      case 'multiple_choice':
+        const choiceData = Object.entries(stats.distribution);
+        return {
+          labels: choiceData.map(([option]) => option),
+          datasets: [{
+            data: choiceData.map(([, count]) => count),
+            backgroundColor: [
+              '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF',
+              '#FF9F40', '#FF6384', '#C9CBCF'
+            ]
+          }]
+        };
+
+      case 'boolean':
+        const boolData = Object.entries(stats.distribution);
+        return {
+          labels: boolData.map(([option]) => option),
+          datasets: [{
+            data: boolData.map(([, count]) => count),
+            backgroundColor: ['#4caf50', '#f44336']
+          }]
+        };
+
+      default:
+        return null;
+    }
+  };
+
+  // Получение данных для матричного графика (тепловая карта)
+  const getMatrixChartData = (matrixData) => {
+    if (!matrixData) return null;
+    
+    const datasets = [];
+    matrixData.columns.forEach((column, colIndex) => {
+      const data = matrixData.rows.map(row => matrixData.rowStats[row]?.counts[column] || 0);
+      datasets.push({
+        label: column,
+        data: data,
+        backgroundColor: `rgba(54, 162, 235, ${0.3 + colIndex * 0.1})`,
+        borderColor: 'rgb(54, 162, 235)',
+        borderWidth: 1
+      });
+    });
+    
+    return {
+      labels: matrixData.rows,
+      datasets: datasets
+    };
+  };
+
+  const getChartOptions = (type) => {
+    const baseOptions = {
+      maintainAspectRatio: false,
+      responsive: true,
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 12,
+            fontSize: 11
+          }
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              let label = context.dataset.label || '';
+              if (label) label += ': ';
+              label += context.raw || context.parsed;
+              return label;
+            }
+          }
+        }
+      }
+    };
+
+    if (type === 'bar') {
+      return {
+        ...baseOptions,
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              stepSize: 1
+            }
+          },
+          x: {
+            ticks: {
+              maxRotation: 45,
+              minRotation: 45,
+              autoSkip: true
+            }
+          }
+        }
+      };
+    }
+
+    if (type === 'doughnut') {
+      return {
+        ...baseOptions,
+        cutout: '50%',
+        plugins: {
+          ...baseOptions.plugins,
+          legend: {
+            position: 'right',
+            labels: {
+              boxWidth: 12,
+              fontSize: 10
+            }
+          }
+        }
+      };
+    }
+
+    return baseOptions;
+  };
+
+  if (!statistics) return <LinearProgress />;
+
+  return (
+    <Box>
+      <Grid container spacing={3} className={classes.statisticCard}>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Всего ответов
+              </Typography>
+              <Typography variant="h4">
+                {statistics.totalResponses}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Завершили полностью
+              </Typography>
+              <Typography variant="h4">
+                {statistics.totalResponses > 0 
+                  ? ((statistics.completedResponses / statistics.totalResponses) * 100).toFixed(1)
+                  : 0}%
+              </Typography>
+              <Typography variant="caption" color="textSecondary">
+                {statistics.completedResponses} из {statistics.totalResponses}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <Card>
+            <CardContent>
+              <Typography color="textSecondary" gutterBottom>
+                Среднее время прохождения
+              </Typography>
+              <Typography variant="h4">
+                {formatTime(statistics.averageTimeSpent)}
+              </Typography>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      <Typography variant="h6" gutterBottom style={{ marginTop: 24 }}>
+        Анализ по вопросам
+      </Typography>
+      
+      {questions.map((question, index) => {
+        const stats = statistics.questionsStats[question._id];
+        const chartData = getChartDataForQuestion(question);
+        const isRatingType = question.type === 'rating' || question.type === 'scale';
+        const isChoiceType = question.type === 'choice' || question.type === 'multiple_choice';
+        const isBooleanType = question.type === 'boolean';
+        const isTextType = question.type === 'text_short' || question.type === 'text_long';
+        const isMatrixType = question.type === 'matrix';
+        const matrixChartData = isMatrixType && stats?.matrixData ? getMatrixChartData(stats.matrixData) : null;
+
+        return (
+          <Card key={question._id} className={classes.questionCard} style={{ marginBottom: 16 }}>
+            <CardHeader
+              avatar={<PollIcon />}
+              title={`Вопрос ${index + 1}: ${question.text}`}
+              subheader={`Тип: ${question.type} | Ответили: ${stats.responseRate.toFixed(1)}%`}
+            />
+            <CardContent>
+              {/* Рейтинг/шкала */}
+              {isRatingType && (
+                <Box mb={2}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Средняя оценка: {stats.averageRating.toFixed(2)}
+                  </Typography>
+                  <div className={classes.ratingBar}>
+                    <div 
+                      className={classes.ratingFill}
+                      style={{ width: `${(stats.averageRating / (question.ratingSettings?.maxValue || 10)) * 100}%` }}
+                    />
+                  </div>
+                </Box>
+              )}
+
+              {/* Matrix вопрос - групповая гистограмма */}
+              {isMatrixType && stats.matrixData && stats.matrixData.rows.length > 0 && (
+                <Box mb={3}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Распределение ответов по строкам матрицы
+                  </Typography>
+                  
+                  {/* Таблица для матрицы */}
+                  <TableContainer component={Paper} style={{ marginTop: 8, overflowX: 'auto' }}>
+                    <Table size="small" style={{ minWidth: 400 }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Строка / Столбец</TableCell>
+                          {stats.matrixData.columns.map((col, idx) => (
+                            <TableCell key={idx} align="center">{col}</TableCell>
+                          ))}
+                          <TableCell align="center">Среднее</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {stats.matrixData.rows.map((row, rowIdx) => (
+                          <TableRow key={rowIdx}>
+                            <TableCell component="th" scope="row">
+                              <Typography variant="body2" style={{ fontWeight: 'bold' }}>
+                                {row}
+                              </Typography>
+                            </TableCell>
+                            {stats.matrixData.columns.map((col, colIdx) => (
+                              <TableCell key={colIdx} align="center">
+                                <Chip 
+                                  size="small"
+                                  label={stats.matrixData.rowStats[row]?.counts[col] || 0}
+                                  variant={stats.matrixData.rowStats[row]?.counts[col] > 0 ? "default" : "outlined"}
+                                />
+                              </TableCell>
+                            ))}
+                            <TableCell align="center">
+                              <Chip 
+                                size="small"
+                                label={stats.matrixData.rowStats[row]?.average.toFixed(1) || 0}
+                                color="primary"
+                              />
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* График для матрицы */}
+                  {matrixChartData && matrixChartData.datasets.length > 0 && (
+                    <Box 
+                      style={{ 
+                        position: 'relative', 
+                        width: '100%', 
+                        minHeight: '400px',
+                        height: 'auto',
+                        marginTop: '16px',
+                        marginBottom: '16px'
+                      }}
+                    >
+                      <div style={{ width: '100%', height: '400px' }}>
+                        <Bar 
+                          data={matrixChartData} 
+                          options={{
+                            maintainAspectRatio: false,
+                            responsive: true,
+                            plugins: {
+                              legend: {
+                                position: 'top',
+                              },
+                              tooltip: {
+                                callbacks: {
+                                  label: function(context) {
+                                    return `${context.dataset.label}: ${context.raw} ответов`;
+                                  }
+                                }
+                              }
+                            },
+                            scales: {
+                              y: {
+                                beginAtZero: true,
+                                ticks: {
+                                  stepSize: 1
+                                },
+                                title: {
+                                  display: true,
+                                  text: 'Количество ответов'
+                                }
+                              },
+                              x: {
+                                title: {
+                                  display: true,
+                                  text: 'Строки матрицы'
+                                }
+                              }
+                            }
+                          }}
+                          redraw={false}
+                        />
+                      </div>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              {/* График для других типов */}
+              {chartData && !isMatrixType && (
+                <Box 
+                  style={{ 
+                    position: 'relative', 
+                    width: '100%', 
+                    minHeight: '320px',
+                    height: 'auto',
+                    marginTop: '16px',
+                    marginBottom: '16px'
+                  }}
+                >
+                  {(isChoiceType || isBooleanType) && (
+                    <div style={{ width: '100%', height: '320px' }}>
+                      <Doughnut 
+                        data={chartData} 
+                        options={getChartOptions('doughnut')}
+                        redraw={false}
+                      />
+                    </div>
+                  )}
+                  {isRatingType && (
+                    <div style={{ width: '100%', height: '320px' }}>
+                      <Bar 
+                        data={chartData} 
+                        options={getChartOptions('bar')}
+                        redraw={false}
+                      />
+                    </div>
+                  )}
+                </Box>
+              )}
+
+              {/* Текстовые ответы */}
+              {isTextType && (
+                <Box mt={2}>
+                  <Typography variant="subtitle2">Текстовые ответы:</Typography>
+                  <Paper variant="outlined" style={{ maxHeight: 200, overflow: 'auto', padding: 8, marginTop: 8 }}>
+                    {stats.textAnswers.length > 0 ? (
+                      stats.textAnswers.map((answer, idx) => (
+                        <Box key={idx} p={1} borderBottom="1px solid #eee">
+                          <Typography variant="body2">{answer}</Typography>
+                        </Box>
+                      ))
+                    ) : (
+                      <Typography color="textSecondary">Нет текстовых ответов</Typography>
+                    )}
+                  </Paper>
+                </Box>
+              )}
+
+              {/* Таблица распределения ответов (для не-matrix типов) */}
+              {!isMatrixType && Object.entries(stats.distribution).length > 0 && (
+                <Box mt={2}>
+                  <Typography variant="subtitle2">Распределение ответов:</Typography>
+                  <TableContainer component={Paper} style={{ marginTop: 8, overflowX: 'auto' }}>
+                    <Table size="small" style={{ minWidth: 200 }}>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Ответ</TableCell>
+                          <TableCell align="right">Количество</TableCell>
+                          <TableCell align="right">Процент</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {Object.entries(stats.distribution).map(([key, count]) => (
+                          <TableRow key={key}>
+                            <TableCell>{key}</TableCell>
+                            <TableCell align="right">{count}</TableCell>
+                            <TableCell align="right">
+                              {stats.totalAnswers > 0 
+                                ? ((count / stats.totalAnswers) * 100).toFixed(1)
+                                : 0}%
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </Box>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </Box>
+  );
+};
+// Компонент детального просмотра ответов студента (адаптирован для анкет)
+const StudentAnswersDialog = ({ open, onClose, attempt, questions, isSurvey }) => {
+  const classes = useStyles();
+  const [expandedQuestions, setExpandedQuestions] = useState({});
 
   if (!attempt) return null;
 
@@ -225,71 +807,61 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
     }));
   };
 
-  const handleScoreChange = (questionId, value) => {
-    setManualScores(prev => ({
-      ...prev,
-      [questionId]: parseInt(value) || 0
-    }));
-  };
-
-  const handleSaveScores = () => {
-    onUpdateScore(attempt._id, manualScores);
-    onClose();
-  };
-
   const renderUserAnswer = (answer, question) => {
     if (!question) return <Typography color="error">Вопрос не найден</Typography>;
 
     switch (question.type) {
-      case 'single':
-        const selectedOption = question.options[answer.userAnswer];
+      case 'rating':
+      case 'scale':
         return (
           <Box>
-            <Typography variant="subtitle2">Выбранный ответ:</Typography>
+            <Typography variant="subtitle2">Оценка:</Typography>
             <Chip 
-              label={selectedOption?.text || 'Не выбран'} 
-              color={answer.isCorrect ? 'primary' : 'default'}
-              icon={answer.isCorrect ? <CheckCircleIcon /> : <ClearIcon />}
+              label={`${answer.ratingValue || answer.userAnswer} из ${question.maxRating || 10}`}
+              color="primary"
             />
           </Box>
         );
 
-      case 'multiple':
-        const selectedOrders = Array.isArray(answer.userAnswer) ? answer.userAnswer : [];
-        const selectedOptions = question.options?.filter(opt => 
-          selectedOrders.includes(opt.order)
-        );
+      case 'choice':
+        const selectedOption = answer.selectedOptions?.[0];
         return (
           <Box>
-            <Typography variant="subtitle2">Выбранные ответы:</Typography>
-            {selectedOptions.map(opt => (
-              <Chip 
-                key={opt.order}
-                label={opt.text}
-                size="small"
-                style={{ margin: 2 }}
-              />
-            ))}
+            <Typography variant="subtitle2">Выбранный ответ:</Typography>
+            <Chip label={selectedOption?.optionText || answer.userAnswer} />
           </Box>
         );
 
-      case 'text':
+      case 'multiple_choice':
+        const selectedOptions = answer.selectedOptions?.map(opt => opt.optionText).join(', ');
         return (
           <Box>
-            <Typography variant="subtitle2">Ответ студента:</Typography>
+            <Typography variant="subtitle2">Выбранные ответы:</Typography>
             <Paper variant="outlined" style={{ padding: 8, backgroundColor: '#f5f5f5' }}>
-              <Typography>{answer.userAnswer || '(пусто)'}</Typography>
+              <Typography>{selectedOptions || answer.userAnswer || '(не выбрано)'}</Typography>
             </Paper>
-            {answer.isCorrect === false && (
-              <Box mt={1}>
-                <Typography variant="subtitle2">Правильный ответ:</Typography>
-                <Chip 
-                  label={question.correctAnswerText || 'Не указан'} 
-                  color="primary"
-                  icon={<CheckCircleIcon />}
-                />
-              </Box>
-            )}
+          </Box>
+        );
+
+      case 'boolean':
+        return (
+          <Box>
+            <Typography variant="subtitle2">Ответ:</Typography>
+            <Chip 
+              label={answer.userAnswer === true || answer.userAnswer === 'true' || answer.userAnswer === 'да' ? 'Да' : 'Нет'}
+              color={answer.userAnswer ? 'primary' : 'default'}
+            />
+          </Box>
+        );
+
+      case 'text_short':
+      case 'text_long':
+        return (
+          <Box>
+            <Typography variant="subtitle2">Ответ:</Typography>
+            <Paper variant="outlined" style={{ padding: 12, backgroundColor: '#f5f5f5' }}>
+              <Typography>{answer.textAnswer || answer.userAnswer || '(пусто)'}</Typography>
+            </Paper>
           </Box>
         );
 
@@ -313,10 +885,11 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
           </Avatar>
           <Box ml={2}>
             <Typography variant="h6">
-              Студент: {attempt.studentName || attempt.studentId}
+              {isSurvey ? 'Респондент:' : 'Студент:'} {attempt.studentName || attempt.studentId || 'Аноним'}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Попытка #{attempt.attemptNumber} • {new Date(attempt.finishedAt).toLocaleString()}
+              {isSurvey ? `Ответ #${attempt.responseNumber || 1}` : `Попытка #${attempt.attemptNumber}`} • 
+              {new Date(attempt.finishedAt || attempt.submittedAt).toLocaleString()}
             </Typography>
           </Box>
         </Box>
@@ -326,23 +899,20 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
           <Grid item xs={12}>
             <Paper variant="outlined" style={{ padding: 16 }}>
               <Grid container spacing={2}>
-                <Grid item xs={4}>
-                  <Typography variant="body2" color="textSecondary">Результат:</Typography>
-                  <Chip 
-                    label={`${attempt.percentage?.toFixed(1)}%`}
-                    className={
-                      attempt.passed ? classes.successChip : classes.errorChip
-                    }
-                  />
-                </Grid>
-                <Grid item xs={4}>
-                  <Typography variant="body2" color="textSecondary">Баллы:</Typography>
-                  <Typography variant="h6">
-                    {attempt.totalScore} / {attempt.maxPossibleScore || '?'}
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Начало:</Typography>
+                  <Typography variant="body1">
+                    {new Date(attempt.startedAt).toLocaleString()}
                   </Typography>
                 </Grid>
-                <Grid item xs={4}>
-                  <Typography variant="body2" color="textSecondary">Время:</Typography>
+                <Grid item xs={6}>
+                  <Typography variant="body2" color="textSecondary">Завершение:</Typography>
+                  <Typography variant="body1">
+                    {new Date(attempt.finishedAt || attempt.submittedAt).toLocaleString()}
+                  </Typography>
+                </Grid>
+                <Grid item xs={12}>
+                  <Typography variant="body2" color="textSecondary">Время прохождения:</Typography>
                   <Typography variant="body1">
                     {formatTime(attempt.totalTimeSpent)}
                   </Typography>
@@ -353,12 +923,12 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
 
           <Grid item xs={12}>
             <Typography variant="h6" gutterBottom>
-              Детали ответов
+              Ответы на вопросы
             </Typography>
             <Divider />
           </Grid>
 
-          {attempt.answers.map((answer, idx) => {
+          {attempt.answers?.map((answer, idx) => {
             const question = questions.find(q => q._id === answer.questionId);
             if (!question) return null;
 
@@ -366,23 +936,10 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
               <Grid item xs={12} key={answer.questionId}>
                 <Card className={classes.questionCard}>
                   <CardHeader
-                    avatar={
-                      answer.isCorrect ? 
-                        <CheckCircleIcon className={classes.answerCorrect} /> : 
-                        <CancelIcon className={classes.answerIncorrect} />
-                    }
                     title={
-                      <Box display="flex" alignItems="center">
-                        <Typography variant="subtitle1">
-                          Вопрос {idx + 1}: {question.text}
-                        </Typography>
-                        <Chip 
-                          size="small"
-                          label={`${answer.awardedPoints || 0}/${answer.maxPoints || 0} баллов`}
-                          style={{ marginLeft: 16 }}
-                          color={answer.isCorrect ? 'primary' : 'default'}
-                        />
-                      </Box>
+                      <Typography variant="subtitle1">
+                        Вопрос {idx + 1}: {question.text}
+                      </Typography>
                     }
                     action={
                       <IconButton onClick={() => toggleQuestion(question._id)}>
@@ -393,28 +950,6 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
                   <Collapse in={expandedQuestions[question._id]} timeout="auto" unmountOnExit>
                     <CardContent>
                       {renderUserAnswer(answer, question)}
-                      
-                      {question.explanation && (
-                        <Box mt={2}>
-                          <Typography variant="subtitle2">Пояснение:</Typography>
-                          <Typography variant="body2" color="textSecondary">
-                            {question.explanation}
-                          </Typography>
-                        </Box>
-                      )}
-
-                      <Box mt={2} display="flex" alignItems="center">
-                        <TextField
-                          label="Баллы"
-                          type="number"
-                          value={manualScores[question._id] || 0}
-                          onChange={(e) => handleScoreChange(question._id, e.target.value)}
-                          inputProps={{ min: 0, max: answer.maxPoints || 100 }}
-                          size="small"
-                          variant="outlined"
-                          style={{ width: 120 }}
-                        />
-                      </Box>
                     </CardContent>
                   </Collapse>
                 </Card>
@@ -424,25 +959,26 @@ const StudentAnswersDialog = ({ open, onClose, attempt, questions, onUpdateScore
         </Grid>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} color="primary">
-          Отмена
-        </Button>
-        <Button onClick={handleSaveScores} color="primary" variant="contained">
-          Сохранить изменения
+        <Button onClick={onClose} color="primary" variant="contained">
+          Закрыть
         </Button>
       </DialogActions>
     </Dialog>
   );
 };
 
-// Основная страница
-const TestResultsTeacher = () => {
+// Основная страница (объединенная для тестов и анкет)
+const TeacherAnswersPage = () => {
   const classes = useStyles();
   const testsOriginal = useSelector(state => state.tests.tests);
+  const surveyOriginal = useSelector(state => state.surveys.surveys);
+  const [contentType, setContentType] = useState('test'); // 'test' или 'survey'
   const [tests, setTests] = useState([]);
+  const [surveys, setSurveys] = useState([]);
   const [filteredTests, setFilteredTests] = useState([]);
+  const [filteredSurveys, setFilteredSurveys] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedTest, setSelectedTest] = useState(null);
+  const [selectedItem, setSelectedItem] = useState(null);
   const [attempts, setAttempts] = useState([]);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -454,103 +990,105 @@ const TestResultsTeacher = () => {
   const [filters, setFilters] = useState({
     dateFrom: '',
     dateTo: '',
-    passed: 'all',
-    minScore: '',
-    maxScore: '',
     studentId: '',
-    studentGroup: ''
+    studentGroup: '',
+    isAnonymous: 'all'
   });
 
-  // Загрузка тестов преподавателя
+  // Загрузка тестов и анкет преподавателя
   useEffect(() => {
     setTests(testsOriginal);
     setFilteredTests(testsOriginal);
+    
+    // Загрузка анкет (нужно добавить API)
+    loadSurveys();
   }, [testsOriginal]);
 
-  // Фильтрация тестов по поисковому запросу
+  const loadSurveys = async () => {
+    try {
+      
+      setSurveys(surveyOriginal);
+      setFilteredSurveys(surveyOriginal);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  // Фильтрация по поисковому запросу
   useEffect(() => {
+    const currentList = contentType === 'test' ? tests : surveys;
+    const setFiltered = contentType === 'test' ? setFilteredTests : setFilteredSurveys;
+    
     if (searchQuery.trim() === '') {
-      setFilteredTests(tests);
+      setFiltered(currentList);
     } else {
       const query = searchQuery.toLowerCase().trim();
-      const filtered = tests.filter(test => 
-        test.name.toLowerCase().includes(query) || 
-        (test.subject && test.subject.toLowerCase().includes(query)) ||
-        (test.description && test.description.toLowerCase().includes(query))
+      const filtered = currentList.filter(item => 
+        item.name.toLowerCase().includes(query) || 
+        (item.description && item.description.toLowerCase().includes(query))
       );
-      setFilteredTests(filtered);
+      setFiltered(filtered);
       
-      // Если выбранный тест не входит в отфильтрованный список, сбрасываем выбор
-      if (selectedTest && !filtered.some(t => t._id === selectedTest._id)) {
-        setSelectedTest(null);
+      if (selectedItem && !filtered.some(item => item._id === selectedItem._id)) {
+        setSelectedItem(null);
         setAttempts([]);
         setQuestions([]);
       }
     }
-  }, [searchQuery, tests, selectedTest]);
+  }, [searchQuery, tests, surveys, contentType, selectedItem]);
 
-  const fetchTestAttempts = async (testId) => {
+  const loadSurveyAttempts = async (surveyId) => {
     setLoading(true);
-    attemptsApi.getAttemptsByTestId(testId).then((attemps)=>{
-        setAttempts(attemps);
-        setLoading(false);
-    })
-    .catch(err => {
-        setLoading(false);
-    })
-  };
-
-  const fetchTestQuestions = async (testId) => {
-    questionsApi.getQuestions(testId).then((q)=>{
-        setQuestions(q);
-    }).catch(err=>{
-
-    })
-  };
-
-  const handleTestSelect = (test) => {
-    setSelectedTest(test);
-    fetchTestAttempts(test._id);
-    fetchTestQuestions(test._id);
-  };
-
-  const handleUpdateScore = async (attemptId, newScores) => {
-    const attemptNew = attempts.find((at) => at._id === attemptId) 
-    let totalScore =0
-    for (let question_id in newScores){
-        totalScore+=newScores[question_id]
-        
-        attemptNew.answers=attemptNew.answers.map((an)=>{
-            if (an.questionId==question_id){
-                if (newScores[question_id] === an.maxPoints){
-                    return {
-                        ...an,
-                        isCorrect:true,
-                        awardedPoints: newScores[question_id],
-                    }
-                }
-                else return{
-                ...an,
-                isCorrect:false,
-                awardedPoints: newScores[question_id]
-            }
-            } 
-            return an
-        })
+    try {
+      const attemptsData = await attemptsSurveyApi.getAttemptsBySurveyId(surveyId);
+      setAttempts(attemptsData);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
     }
-    const percentage = totalScore/attemptNew.maxPossibleScore*100
-    attemptNew.passed=percentage >= selectedTest.passingScore
-    attemptNew.totalScore= totalScore
-    attemptNew.percentage=percentage
-    attemptsApi.updateAttempt(attemptNew)
-    .then((data) => {
-        
-        //setAttempts(attemptsNew)
-    })
-    .catch(err =>{
+  };
 
-    })
-    
+  const loadSurveyQuestions = async (surveyId) => {
+    try {
+      const questionsData = await surveyQuestionsApi.getSurveyQuestions(surveyId);
+      setQuestions(questionsData);
+    } catch (err) {
+      console.log(err);
+    }
+  };
+
+  const handleItemSelect = (item) => {
+    setSelectedItem(item);
+    if (contentType === 'test') {
+      loadTestAttempts(item._id);
+      loadTestQuestions(item._id);
+    } else {
+      console.log('dfs')
+      loadSurveyAttempts(item._id);
+      loadSurveyQuestions(item._id);
+    }
+  };
+
+  const loadTestAttempts = async (testId) => {
+    setLoading(true);
+    try {
+      const attemptsData = await attemptsApi.getAttemptsByTestId(testId);
+      setAttempts(attemptsData);
+    } catch (err) {
+      console.log(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const loadTestQuestions = async (testId) => {
+    try {
+      const questionsData = await questionsApi.getQuestions(testId);
+      setQuestions(questionsData);
+    } catch (err) {
+      console.log(err);
+    }
   };
 
   const handleChangePage = (event, newPage) => {
@@ -567,375 +1105,462 @@ const TestResultsTeacher = () => {
   };
 
   const filteredAttempts = attempts.filter(attempt => {
-    if (filters.passed !== 'all' && attempt.passed !== (filters.passed === 'true')) return false;
-    if (filters.minScore && (attempt.percentage || 0) < parseInt(filters.minScore)) return false;
-    if (filters.maxScore && (attempt.percentage || 0) > parseInt(filters.maxScore)) return false;
-    if (filters.studentId && !attempt.studentId.includes(filters.studentId)) return false;
+    if (filters.studentId && !attempt.studentId?.includes(filters.studentId)) return false;
     if (filters.studentGroup && filters.studentGroup.trim() !== '') {
-        // Проверяем наличие поля studentGroup
-        if (!attempt.studentGroup) return false;
-        
-        // Приводим к строке и удаляем пробелы, игнорируем регистр
-        const attemptGroup = attempt.studentGroup.toString().trim().toLowerCase();
-        const searchGroup = filters.studentGroup.toString().trim().toLowerCase();
-        
-        // Используем includes для частичного совпадения или strict равенство
-        if (!attemptGroup.includes(searchGroup)) return false;
+      if (!attempt.studentGroup) return false;
+      const attemptGroup = attempt.studentGroup.toString().trim().toLowerCase();
+      const searchGroup = filters.studentGroup.toString().trim().toLowerCase();
+      if (!attemptGroup.includes(searchGroup)) return false;
+    }
+    if (filters.isAnonymous !== 'all') {
+      const isAnonymous = !attempt.studentId;
+      if (filters.isAnonymous === 'anonymous' && !isAnonymous) return false;
+      if (filters.isAnonymous === 'registered' && isAnonymous) return false;
     }
     return true;
   });
 
-  // Данные для графиков
+  // Данные для графиков (только для тестов)
   const getScoreDistribution = () => {
     const distribution = [0, 0, 0, 0, 0];
     filteredAttempts.forEach(attempt => {
-      const score = attempt.percentage || 0;
-      if (score < 20) distribution[0]++;
-      else if (score < 40) distribution[1]++;
-      else if (score < 60) distribution[2]++;
-      else if (score < 80) distribution[3]++;
-      else distribution[4]++;
+      if (attempt.percentage !== undefined) {
+        const score = attempt.percentage || 0;
+        if (score < 20) distribution[0]++;
+        else if (score < 40) distribution[1]++;
+        else if (score < 60) distribution[2]++;
+        else if (score < 80) distribution[3]++;
+        else distribution[4]++;
+      }
     });
     return distribution;
   };
 
   const chartData = {
     labels: ['0-20%', '21-40%', '41-60%', '61-80%', '81-100%'],
-    datasets: [
-      {
-        label: 'Количество студентов',
-        data: getScoreDistribution(),
-        backgroundColor: [
-          'rgba(255, 99, 132, 0.5)',
-          'rgba(255, 159, 64, 0.5)',
-          'rgba(255, 205, 86, 0.5)',
-          'rgba(75, 192, 192, 0.5)',
-          'rgba(54, 162, 235, 0.5)',
-        ],
-        borderColor: [
-          'rgb(255, 99, 132)',
-          'rgb(255, 159, 64)',
-          'rgb(255, 205, 86)',
-          'rgb(75, 192, 192)',
-          'rgb(54, 162, 235)',
-        ],
-        borderWidth: 1,
-      },
-    ],
+    datasets: [{
+      label: 'Количество студентов',
+      data: getScoreDistribution(),
+      backgroundColor: ['rgba(255, 99, 132, 0.5)', 'rgba(255, 159, 64, 0.5)', 'rgba(255, 205, 86, 0.5)', 'rgba(75, 192, 192, 0.5)', 'rgba(54, 162, 235, 0.5)'],
+      borderColor: ['rgb(255, 99, 132)', 'rgb(255, 159, 64)', 'rgb(255, 205, 86)', 'rgb(75, 192, 192)', 'rgb(54, 162, 235)'],
+      borderWidth: 1,
+    }],
   };
 
   const lineChartData = {
-    labels: filteredAttempts.map(a => new Date(a.finishedAt).toLocaleDateString()),
-    datasets: [
-      {
-        label: 'Процент выполнения',
-        data: filteredAttempts.map(a => a.percentage || 0),
-        borderColor: 'rgb(75, 192, 192)',
-        backgroundColor: 'rgba(75, 192, 192, 0.2)',
-      },
-    ],
+    labels: filteredAttempts.map(a => new Date(a.finishedAt || a.submittedAt).toLocaleDateString()),
+    datasets: [{
+      label: contentType === 'test' ? 'Процент выполнения' : 'Время прохождения (сек)',
+      data: contentType === 'test' 
+        ? filteredAttempts.map(a => a.percentage || 0)
+        : filteredAttempts.map(a => a.totalTimeSpent || 0),
+      borderColor: 'rgb(75, 192, 192)',
+      backgroundColor: 'rgba(75, 192, 192, 0.2)',
+    }],
   };
+
+  const currentList = contentType === 'test' ? filteredTests : filteredSurveys;
 
   return (
     <>
-    <Header>
-                        <div className="navigation">
-                          <nav className="navigation__another-button">
-                            <Link to="/glavnay" className="navigation__button">
-                              Главная
-                            </Link>
-                            <Link
-                              to="/lk"
-                              className="navigation__button navigation__button_active"
-                            >
-                              Личный кабинет
-                            </Link>
-                          </nav>
-                        </div>
-                      </Header>
+      <Header>
+        <div className="navigation">
+          <nav className="navigation__another-button">
+            <Link to="/glavnay" className="navigation__button">Главная</Link>
+            <Link to="/lk" className="navigation__button navigation__button_active">Личный кабинет</Link>
+          </nav>
+        </div>
+      </Header>
     
-    <div className={classes.root}>
-      <Container maxWidth="xl">
-        <Box className={classes.header} display="flex" justifyContent="space-between" alignItems="center">
-          <Typography variant="h4" component="h1">
-            Просмотр ответов студентов
-          </Typography>
-          <Box>
-            <Tooltip title="Обновить">
-              <IconButton onClick={() => selectedTest && fetchTestAttempts(selectedTest._id)}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-            <Tooltip title="Фильтры">
-              <IconButton onClick={() => setFilterDialogOpen(true)}>
-                <Badge color="secondary" variant="dot" invisible={Object.values(filters).every(v => !v)}>
-                  <FilterListIcon />
-                </Badge>
-              </IconButton>
-            </Tooltip>
-            
-          </Box>
-        </Box>
-
-        <Grid container spacing={3}>
-          {/* Список тестов с поиском */}
-          <Grid item xs={12} md={3}>
-            <Paper className={classes.paper}>
-              <Typography variant="h6" gutterBottom>
-                Мои тесты
+      <div className={classes.root}>
+        <Container maxWidth="xl">
+          <Box className={classes.header} display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap">
+            <Box>
+              <Typography variant="h4" component="h1">
+                Просмотр ответов
               </Typography>
-              
-              {/* Поле поиска */}
-              <Box className={classes.searchBox}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  placeholder="Поиск по названию, предмету..."
-                  size="small"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon />
-                      </InputAdornment>
-                    ),
-                    endAdornment: searchQuery && (
-                      <InputAdornment position="end">
-                        <IconButton
-                          size="small"
-                          onClick={handleClearSearch}
-                          className={classes.clearSearchButton}
-                        >
-                          <ClearIcon />
-                        </IconButton>
-                      </InputAdornment>
-                    ),
+              <Box display="flex" alignItems="center" mt={1}>
+                <Button
+                  variant={contentType === 'test' ? 'contained' : 'outlined'}
+                  color="primary"
+                  onClick={() => {
+                    setContentType('test');
+                    setSelectedItem(null);
+                    setAttempts([]);
+                    setQuestions([]);
+                    setSearchQuery('');
                   }}
-                />
+                  style={{ marginRight: 8 }}
+                >
+                  Тесты
+                </Button>
+                <Button
+                  variant={contentType === 'survey' ? 'contained' : 'outlined'}
+                  color="primary"
+                  onClick={() => {
+                    setContentType('survey');
+                    setSelectedItem(null);
+                    setAttempts([]);
+                    setQuestions([]);
+                    setSearchQuery('');
+                  }}
+                >
+                  Анкеты
+                </Button>
               </Box>
+            </Box>
+            <Box>
+              <Tooltip title="Обновить">
+                <IconButton onClick={() => selectedItem && handleItemSelect(selectedItem)}>
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+              <Tooltip title="Фильтры">
+                <IconButton onClick={() => setFilterDialogOpen(true)}>
+                  <Badge color="secondary" variant="dot" invisible={Object.values(filters).every(v => !v)}>
+                    <FilterListIcon />
+                  </Badge>
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
 
-              {/* Количество найденных тестов */}
-              {searchQuery && (
-                <Typography className={classes.searchResultCount}>
-                  Найдено тестов: {filteredTests.length}
+          <Grid container spacing={3}>
+            {/* Список тестов/анкет с поиском */}
+            <Grid item xs={12} md={3}>
+              <Paper className={classes.paper}>
+                <Typography variant="h6" gutterBottom>
+                  {contentType === 'test' ? 'Мои тесты' : 'Мои анкеты'}
                 </Typography>
-              )}
+                
+                <Box className={classes.searchBox}>
+                  <TextField
+                    fullWidth
+                    variant="outlined"
+                    placeholder={`Поиск по названию...`}
+                    size="small"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon />
+                        </InputAdornment>
+                      ),
+                      endAdornment: searchQuery && (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={handleClearSearch}>
+                            <ClearIcon />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+                </Box>
 
-              {/* Список тестов */}
-              <List component="nav" className={classes.testList}>
-                {filteredTests.length > 0 ? (
-                  filteredTests.map((test) => (
-                    <ListItem
-                      button
-                      key={test._id}
-                      selected={selectedTest?._id === test._id}
-                      onClick={() => handleTestSelect(test)}
-                    >
-                      <ListItemIcon>
-                        <AssessmentIcon />
-                      </ListItemIcon>
-                      <ListItemText 
-                        primary={test.name} 
-                        secondary={
-                          <>
-                            {test.subject && `${test.subject} • `}
-                            {test.duration} мин
-                          </>
-                        }
+                {searchQuery && (
+                  <Typography className={classes.searchResultCount}>
+                    Найдено: {currentList.length}
+                  </Typography>
+                )}
+
+                <List component="nav" className={classes.testList}>
+                  {currentList.length > 0 ? (
+                    currentList.map((item) => (
+                      <ListItem
+                        button
+                        key={item._id}
+                        selected={selectedItem?._id === item._id}
+                        onClick={() => handleItemSelect(item)}
+                      >
+                        <ListItemIcon>
+                          {contentType === 'test' ? <AssessmentIcon /> : <PollIcon />}
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={item.name} 
+                          secondary={item.description?.substring(0, 50)}
+                        />
+                      </ListItem>
+                    ))
+                  ) : (
+                    <Box className={classes.noTestsFound}>
+                      <Typography variant="body2">
+                        {searchQuery ? 'Не найдено' : `Нет доступных ${contentType === 'test' ? 'тестов' : 'анкет'}`}
+                      </Typography>
+                    </Box>
+                  )}
+                </List>
+              </Paper>
+            </Grid>
+
+            {/* Детали и статистика */}
+            <Grid item xs={12} md={9}>
+              {selectedItem ? (
+                <>
+                  <Paper style={{ marginBottom: 16, padding: 16 }}>
+                    <Typography variant="h5" gutterBottom>
+                      {selectedItem.name}
+                    </Typography>
+                    <Typography variant="body2" color="textSecondary">
+                      {selectedItem.description}
+                    </Typography>
+                    <Box mt={2} display="flex" alignItems="center">
+                      <Chip 
+                        size="small"
+                        label={`Всего ${contentType === 'test' ? 'попыток' : 'ответов'}: ${attempts.length}`}
+                        color="primary"
+                        variant="outlined"
                       />
-                    </ListItem>
-                  ))
-                ) : (
-                  <Box className={classes.noTestsFound}>
-                    <Typography variant="body2">
-                      {searchQuery ? 'Тесты не найдены' : 'Нет доступных тестов'}
+                    </Box>
+                  </Paper>
+
+                  {/* Статистика для тестов */}
+                  {contentType === 'test' && (
+                    <Paper style={{ marginBottom: 16 }}>
+                      <TestStats attempts={filteredAttempts} useStyles={useStyles} />
+                    </Paper>
+                  )}
+
+                  {/* Статистика для анкет */}
+                  {contentType === 'survey' && (
+                    <SurveyStatistics 
+                      survey={selectedItem}
+                      attempts={filteredAttempts}
+                      questions={questions}
+                    />
+                  )}
+
+                  {/* Табы с графиками и таблицей (только для тестов) */}
+                  {contentType === 'test' && (
+                    <Paper className={classes.tabRoot}>
+                      <Tabs
+                        value={tabValue}
+                        onChange={(e, v) => setTabValue(v)}
+                        indicatorColor="primary"
+                        textColor="primary"
+                      >
+                        <Tab label="Список попыток" />
+                        <Tab label="Статистика" />
+                      </Tabs>
+                      <Divider />
+
+                      {tabValue === 0 && (
+                        <Box p={3}>
+                          <TableContainer className={classes.tableContainer}>
+                            <Table stickyHeader>
+                              <TableHead>
+                                <TableRow>
+                                  <TableCell>Студент</TableCell>
+                                  <TableCell>Группа</TableCell>
+                                  <TableCell>Попытка</TableCell>
+                                  <TableCell>Дата</TableCell>
+                                  <TableCell>Результат</TableCell>
+                                  <TableCell>Баллы</TableCell>
+                                  <TableCell>Время</TableCell>
+                                  <TableCell>Действия</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {filteredAttempts
+                                  .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                  .map((attempt) => (
+                                    <TableRow key={attempt._id} hover>
+                                      <TableCell>
+                                        <Box display="flex" alignItems="center">
+                                          <Avatar className={classes.avatarIcon}>
+                                            <PersonIcon />
+                                          </Avatar>
+                                          <Box ml={1}>
+                                            <Typography variant="body2">
+                                              {attempt.studentName && `${attempt.studentName} ${attempt.studentSurname}` || attempt.studentId || 'Аноним'}
+                                            </Typography>
+                                          </Box>
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2">
+                                          {attempt.studentGroup || '-'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip label={`#${attempt.attemptNumber}`} size="small" variant="outlined" />
+                                      </TableCell>
+                                      <TableCell>
+                                        {new Date(attempt.finishedAt).toLocaleDateString()}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Chip 
+                                          label={`${attempt.percentage?.toFixed(1)}%`}
+                                          className={attempt.passed ? classes.successChip : classes.warningChip}
+                                        />
+                                      </TableCell>
+                                      <TableCell>
+                                        <Typography variant="body2">
+                                          {attempt.totalScore || 0} / {attempt.maxPossibleScore || '?'}
+                                        </Typography>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Box display="flex" alignItems="center">
+                                          <AccessTimeIcon fontSize="small" style={{ marginRight: 4 }} />
+                                          {formatTime(attempt.totalTimeSpent)}
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell>
+                                        <Button
+                                          variant="outlined"
+                                          size="small"
+                                          onClick={() => setSelectedAttempt(attempt)}
+                                        >
+                                          Просмотр
+                                        </Button>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                          <TablePagination
+                            rowsPerPageOptions={[5, 10, 25]}
+                            component="div"
+                            count={filteredAttempts.length}
+                            rowsPerPage={rowsPerPage}
+                            page={page}
+                            onPageChange={handleChangePage}
+                            onRowsPerPageChange={handleChangeRowsPerPage}
+                          />
+                        </Box>
+                      )}
+
+                      {tabValue === 1 && (
+                        <Box p={3}>
+                          <Grid container spacing={3}>
+                            <Grid item xs={12} md={6}>
+                              <Card>
+                                <CardHeader title="Распределение оценок" />
+                                <CardContent>
+                                  <div className={classes.chartContainer}>
+                                    <Bar data={chartData} />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Grid>
+                            <Grid item xs={12} md={6}>
+                              <Card>
+                                <CardHeader title="Динамика результатов" />
+                                <CardContent>
+                                  <div className={classes.chartContainer}>
+                                    <Line data={lineChartData} />
+                                  </div>
+                                </CardContent>
+                              </Card>
+                            </Grid>
+                          </Grid>
+                        </Box>
+                      )}
+                    </Paper>
+                  )}
+
+                  {/* Таблица ответов для анкет */}
+                  {contentType === 'survey' && (
+                    <Paper className={classes.tabRoot}>
+                      <Box p={3}>
+                        <Typography variant="h6" gutterBottom>Список ответов на анкету</Typography>
+                        <TableContainer className={classes.tableContainer}>
+                          <Table stickyHeader>
+                            <TableHead>
+                              <TableRow>
+                                <TableCell>Респондент</TableCell>
+                                <TableCell>Группа</TableCell>
+                                <TableCell>Статус</TableCell>
+                                <TableCell>Дата</TableCell>
+                                <TableCell>Время</TableCell>
+                                <TableCell>Действия</TableCell>
+                              </TableRow>
+                            </TableHead>
+                            <TableBody>
+                              {filteredAttempts
+                                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                                .map((attempt) => (
+                                  <TableRow key={attempt._id} hover>
+                                    <TableCell>
+                                      <Box display="flex" alignItems="center">
+                                        <Avatar className={classes.avatarIcon}>
+                                          <PersonIcon />
+                                        </Avatar>
+                                        <Box ml={1}>
+                                          <Typography variant="body2">
+                                            {attempt.studentName || attempt.studentId || 'Анонимный пользователь'}
+                                          </Typography>
+                                        </Box>
+                                      </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Typography variant="body2">
+                                        {attempt.studentGroup || '-'}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Chip 
+                                        label={attempt.isCompleted ? 'Завершено' : 'Не завершено'}
+                                        className={attempt.isCompleted ? classes.successChip : classes.warningChip}
+                                        size="small"
+                                      />
+                                    </TableCell>
+                                    <TableCell>
+                                      {new Date(attempt.finishedAt || attempt.submittedAt).toLocaleDateString()}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Box display="flex" alignItems="center">
+                                        <AccessTimeIcon fontSize="small" style={{ marginRight: 4 }} />
+                                        {formatTime(attempt.totalTimeSpent)}
+                                      </Box>
+                                    </TableCell>
+                                    <TableCell>
+                                      <Button
+                                        variant="outlined"
+                                        size="small"
+                                        onClick={() => setSelectedAttempt(attempt)}
+                                      >
+                                        Просмотр
+                                      </Button>
+                                    </TableCell>
+                                  </TableRow>
+                                ))}
+                            </TableBody>
+                          </Table>
+                        </TableContainer>
+                        <TablePagination
+                          rowsPerPageOptions={[5, 10, 25]}
+                          component="div"
+                          count={filteredAttempts.length}
+                          rowsPerPage={rowsPerPage}
+                          page={page}
+                          onPageChange={handleChangePage}
+                          onRowsPerPageChange={handleChangeRowsPerPage}
+                        />
+                      </Box>
+                    </Paper>
+                  )}
+                </>
+              ) : (
+                <Paper className={classes.paper}>
+                  <Box textAlign="center" py={5}>
+                    {contentType === 'test' ? <AssessmentIcon style={{ fontSize: 60, color: '#ccc' }} /> : <PollIcon style={{ fontSize: 60, color: '#ccc' }} />}
+                    <Typography variant="h6" color="textSecondary">
+                      {searchQuery ? 'Выберите элемент из результатов поиска' : `Выберите ${contentType === 'test' ? 'тест' : 'анкету'} для просмотра результатов`}
                     </Typography>
                   </Box>
-                )}
-              </List>
-            </Paper>
-          </Grid>
-
-          {/* Детали теста */}
-          <Grid item xs={12} md={9}>
-            {selectedTest ? (
-              <>
-                {/* Статистика */}
-                <Paper style={{ marginBottom: 16 }}>
-                  <TestStats 
-                    attempts={filteredAttempts} 
-                    useStyles={useStyles}
-                  />
                 </Paper>
-
-                {/* Табы с графиками и таблицей */}
-                <Paper className={classes.tabRoot}>
-                  <Tabs
-                    value={tabValue}
-                    onChange={(e, v) => setTabValue(v)}
-                    indicatorColor="primary"
-                    textColor="primary"
-                  >
-                    <Tab label="Список попыток" />
-                    <Tab label="Статистика" />
-                  </Tabs>
-                  <Divider />
-
-                  {/* Список попыток */}
-                  {tabValue === 0 && (
-                    <Box p={3}>
-                      <TableContainer className={classes.tableContainer}>
-                        <Table stickyHeader>
-                          <TableHead>
-                            <TableRow>
-                              <TableCell>Студент</TableCell>
-                              <TableCell>Группа</TableCell>
-                              <TableCell>Попытка</TableCell>
-                              <TableCell>Дата</TableCell>
-                              <TableCell>Результат</TableCell>
-                              <TableCell>Баллы</TableCell>
-                              <TableCell>Время</TableCell>
-                              <TableCell>Действия</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {filteredAttempts
-                              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                              .map((attempt) => (
-                                <TableRow key={attempt._id} hover>
-                                  <TableCell>
-                                    <Box display="flex" alignItems="center">
-                                      <Avatar className={classes.avatarIcon}>
-                                        <PersonIcon />
-                                      </Avatar>
-                                      <Box ml={1}>
-                                        <Typography variant="body2">
-                                          {attempt.studentName && `${attempt.studentName} ${attempt.studentSurname}` || attempt.studentId}
-                                        </Typography>
-                                      </Box>
-                                    </Box>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Typography variant="body2">
-                                      {attempt.studentGroup && `${attempt.studentGroup}` || '-'}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Chip 
-                                      label={`#${attempt.attemptNumber}`}
-                                      size="small"
-                                      variant="outlined"
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    {new Date(attempt.finishedAt).toLocaleDateString()}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Chip 
-                                      label={`${attempt.percentage?.toFixed(1)}%`}
-                                      className={
-                                        attempt.passed ? classes.successChip : classes.warningChip
-                                      }
-                                    />
-                                  </TableCell>
-                                  <TableCell>
-                                    <Typography variant="body2">
-                                      {attempt.totalScore || 0} / {attempt.maxPossibleScore || '?'}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Box display="flex" alignItems="center">
-                                      <AccessTimeIcon fontSize="small" style={{ marginRight: 4 }} />
-                                      {formatTime(attempt.totalTimeSpent)}
-                                    </Box>
-                                  </TableCell>
-                                  <TableCell>
-                                    <Button
-                                      variant="outlined"
-                                      size="small"
-                                      onClick={() => setSelectedAttempt(attempt)}
-                                    >
-                                      Просмотр
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                      <TablePagination
-                        rowsPerPageOptions={[5, 10, 25]}
-                        component="div"
-                        count={filteredAttempts.length}
-                        rowsPerPage={rowsPerPage}
-                        page={page}
-                        onPageChange={handleChangePage}
-                        onRowsPerPageChange={handleChangeRowsPerPage}
-                      />
-                    </Box>
-                  )}
-
-                  {/* Статистика */}
-                  {tabValue === 1 && (
-                    <Box p={3}>
-                      <Grid container spacing={3}>
-                        <Grid item xs={12} md={6}>
-                          <Card>
-                            <CardHeader title="Распределение оценок" />
-                            <CardContent>
-                              <div className={classes.chartContainer}>
-                                <Bar data={chartData} />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                        <Grid item xs={12} md={6}>
-                          <Card>
-                            <CardHeader title="Динамика результатов" />
-                            <CardContent>
-                              <div className={classes.chartContainer}>
-                                <Line data={lineChartData} />
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      </Grid>
-                    </Box>
-                  )}
-
-             
-                </Paper>
-              </>
-            ) : (
-              <Paper className={classes.paper}>
-                <Box textAlign="center" py={5}>
-                  <AssessmentIcon style={{ fontSize: 60, color: '#ccc' }} />
-                  <Typography variant="h6" color="textSecondary">
-                    {searchQuery ? 'Выберите тест из результатов поиска' : 'Выберите тест для просмотра результатов'}
-                  </Typography>
-                </Box>
-              </Paper>
-            )}
+              )}
+            </Grid>
           </Grid>
-        </Grid>
-      </Container>
+        </Container>
+      </div>
 
       {/* Диалог фильтров */}
       <Dialog open={filterDialogOpen} onClose={() => setFilterDialogOpen(false)}>
         <DialogTitle>Фильтры</DialogTitle>
         <DialogContent>
-          <FormControl fullWidth margin="normal">
-            <InputLabel>Результат</InputLabel>
-            <Select
-              value={filters.passed}
-              onChange={(e) => setFilters({...filters, passed: e.target.value})}
-            >
-              <MenuItem value="all">Все</MenuItem>
-              <MenuItem value="true">Сдано</MenuItem>
-              <MenuItem value="false">Не сдано</MenuItem>
-            </Select>
-          </FormControl>
           <TextField
             fullWidth
             margin="normal"
@@ -943,38 +1568,34 @@ const TestResultsTeacher = () => {
             value={filters.studentId}
             onChange={(e) => setFilters({...filters, studentId: e.target.value})}
           />
-           <TextField
+          <TextField
             fullWidth
             margin="normal"
             label="Группа студента"
             value={filters.studentGroup}
             onChange={(e) => setFilters({...filters, studentGroup: e.target.value})}
           />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Мин. процент"
-            type="number"
-            value={filters.minScore}
-            onChange={(e) => setFilters({...filters, minScore: e.target.value})}
-          />
-          <TextField
-            fullWidth
-            margin="normal"
-            label="Макс. процент"
-            type="number"
-            value={filters.maxScore}
-            onChange={(e) => setFilters({...filters, maxScore: e.target.value})}
-          />
+          {contentType === 'survey' && (
+            <FormControl fullWidth margin="normal">
+              <InputLabel>Тип ответа</InputLabel>
+              <Select
+                value={filters.isAnonymous}
+                onChange={(e) => setFilters({...filters, isAnonymous: e.target.value})}
+              >
+                <MenuItem value="all">Все</MenuItem>
+                <MenuItem value="anonymous">Анонимные</MenuItem>
+                <MenuItem value="registered">Зарегистрированные</MenuItem>
+              </Select>
+            </FormControl>
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setFilters({
             dateFrom: '',
             dateTo: '',
-            passed: 'all',
-            minScore: '',
-            maxScore: '',
-            studentId: ''
+            studentId: '',
+            studentGroup: '',
+            isAnonymous: 'all'
           })}>
             Сбросить
           </Button>
@@ -984,16 +1605,15 @@ const TestResultsTeacher = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Диалог просмотра ответов студента */}
+      {/* Диалог просмотра ответов студента/респондента */}
       <StudentAnswersDialog
         open={!!selectedAttempt}
         onClose={() => setSelectedAttempt(null)}
         attempt={selectedAttempt}
         questions={questions}
-        onUpdateScore={handleUpdateScore}
+        isSurvey={contentType === 'survey'}
       />
-    </div>
-    </>
+</>
   );
 };
 
@@ -1005,4 +1625,4 @@ const formatTime = (seconds) => {
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
-export default TestResultsTeacher;
+export default TeacherAnswersPage;

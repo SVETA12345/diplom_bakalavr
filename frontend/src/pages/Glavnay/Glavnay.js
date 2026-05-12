@@ -4,6 +4,7 @@ import Header from "../../components/Header/Header";
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from "react";
 import { testsApi } from "../../utils/testsApi";
+import {surveysApi} from '../../utils/surveysApi'
 import OptionCard from "../../components/OptionCard/OptionCard";
 import {
   Card,
@@ -20,10 +21,12 @@ import {
 } from "@material-ui/icons";
 import { useDispatch } from "react-redux";
 
+
 function Glavnay(props) {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const [testsData, setTestsData] = useState([]);
+  const [surveysData, setSurveysData] = useState([]);
   
   const handleTestsClick = (testId) => {
     console.log("Открыть тест:", testId);
@@ -32,10 +35,13 @@ function Glavnay(props) {
    const handleAnswersTests = (e) => {
     navigate('/tests-results')
   }
+  const handleSurveysClick = (e) => {
+    navigate('/survey')
+  }
   const stats = [
     {
       title: "Всего тестов",
-      value: testsData.length,
+      value: testsData.length+surveysData.length,
       subtitle: "активных тестов",
       icon: <QuestionAnswer className="stat-icon" />,
       color: "#1976d2",
@@ -48,6 +54,14 @@ function Glavnay(props) {
       icon: <QuestionAnswer className="stat-icon" />,
       color: "#2e7d32",
       onClick: handleAnswersTests
+    },
+    {
+      title: "Создать анкету",
+      value: "",
+      subtitle: "",
+      icon: <QuestionAnswer className="stat-icon" />,
+      color: "#2e7d32",
+      onClick: handleSurveysClick
     },
   ];
 
@@ -63,6 +77,13 @@ function Glavnay(props) {
       setTestsData(data);
       dispatch({
         type: "SAVE_TESTS",
+        payload: data,
+      });
+    });
+    surveysApi.getSurveys().then((data) => {
+      setSurveysData(data)
+      dispatch({
+        type: "SAVE_SURVEYS",
         payload: data,
       });
     });

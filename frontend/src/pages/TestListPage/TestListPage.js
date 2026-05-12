@@ -14,6 +14,8 @@ import {
   DialogActions,
   Snackbar,
   Paper,
+  Tab,
+  Tabs
 } from '@material-ui/core';
 import { useStyles } from './TestListPageStyles'
 import Header from '../../components/Header/Header';
@@ -28,84 +30,86 @@ import { useSelector } from 'react-redux';
 import { Link } from "react-router-dom";
 import TestsFilter from '../../components/TestsFilter/TestsFilter';
 import { testsApi } from '../../utils/testsApi';
+import { surveysApi } from '../../utils/surveysApi';
 import { useNavigate } from 'react-router-dom';
 import SnackbarCustom from '../../components/SnackbarCustom/SnackbarCustom';
 
 const TestListPage = () => {
-    const navigate = useNavigate()
-  const classes = useStyles();
-  const testsOriginal = useSelector(state => state.tests.tests);
-  // Состояния для данных
-  const [tests, setTests] = useState([]);
-  const [filteredTests, setFilteredTests] = useState([]);
-  
-  // Состояния для фильтров
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSubject, setSelectedSubject] = useState('all');
-  const [dateFilter, setDateFilter] = useState('');
-  
-  // Состояния для UI
-  const [subjects, setSubjects] = useState([]);
-  const [showFilters, setShowFilters] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [testToDelete, setTestToDelete] = useState(null);
-  const [snackbar, setSnackbar] = useState({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-
-  
-
-  
-  // Извлечение уникальных предметов
-  const extractSubjects = (testsData) => {
-    const subjectsSet = new Set();
-    testsData.forEach(test => {
-      if (test.subject) {
-        subjectsSet.add(test.subject);
-      }
+    const navigate = useNavigate();
+    const classes = useStyles();
+    
+    // Новое состояние для типа контента
+    const [contentType, setContentType] = useState('tests'); // 'tests' или 'surveys'
+    
+    // Получаем данные из Redux
+    const testsOriginal = useSelector(state => state.tests.tests);
+    const surveysOriginal = useSelector(state => {
+      return state.surveys.surveys || []});
+    
+    // Состояния для данных
+    const [items, setItems] = useState([]); // универсальное название
+    const [filteredItems, setFilteredItems] = useState([]);
+    
+    // Состояния для фильтров
+    const [searchQuery, setSearchQuery] = useState('');
+    const [selectedSubject, setSelectedSubject] = useState('all');
+    const [dateFilter, setDateFilter] = useState('');
+    
+    // Состояния для UI
+    const [subjects, setSubjects] = useState([]);
+    const [showFilters, setShowFilters] = useState(false);
+    const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+    const [itemToDelete, setItemToDelete] = useState(null);
+    const [snackbar, setSnackbar] = useState({
+        open: false,
+        message: '',
+        severity: 'info',
     });
-    const subjectsList = ['Все предметы', ...Array.from(subjectsSet)];
-    setSubjects(subjectsList);
-  };
+    
+    // Получение текущих данных в зависимости от типа
+    const getCurrentData = () => {
+        return contentType === 'tests' ? testsOriginal : surveysOriginal;
+    };
 
-  // Фильтрация тестов
-  const filterTests = () => {
-    console.log('tests', tests)
-    let filtered = [...tests];
+    // Получение API для текущего типа
+    const getCurrentApi = () => {
+        return contentType === 'tests' ? testsApi : surveysApi;
+    };
 
-    // Фильтр по поисковому запросу
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        test =>
-          test.name.toLowerCase().includes(query) ||
-          (test.description && test.description.toLowerCase().includes(query))
-      );
-    }
+    
 
-    // Фильтр по предмету
-    if (selectedSubject && selectedSubject !== 'all') {
-      filtered = filtered.filter(test => test.subject === selectedSubject);
-    }
+    // Фильтрация элементов
+    const filterItems = () => {
+        
+        let filtered = [...items];
 
-    // Фильтр по дате (простая проверка на совпадение даты)
-    if (dateFilter) {
-      filtered = filtered.filter(test => {
-        const testDate = formatDateForFilter(test.createdAt);
-        return testDate === dateFilter;
-      });
-    }
-    setFilteredTests(filtered);
-  };
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            filtered = filtered.filter(
+                item =>
+                    item.name.toLowerCase().includes(query) ||
+                    (item.description && item.description.toLowerCase().includes(query))
+            );
+        }
 
-  // Форматирование даты для фильтра
+        if (selectedSubject && selectedSubject !== 'all') {
+            filtered = filtered.filter(item => item.subject === selectedSubject);
+        }
+
+        if (dateFilter) {
+            filtered = filtered.filter(item => {
+                const itemDate = formatDateForFilter(item.createdAt);
+                return itemDate === dateFilter;
+            });
+        }
+        setFilteredItems(filtered);
+    };
+
+     // Форматирование даты для фильтра
   const formatDateForFilter = (dateString) => {
     const date = new Date(dateString);
     return date.toISOString().split('T')[0]; // Возвращает YYYY-MM-DD
   };
-
   // Форматирование даты для отображения
   const formatDateForDisplay = (dateString) => {
     const date = new Date(dateString);
@@ -116,284 +120,365 @@ const TestListPage = () => {
     const minutes = String(date.getMinutes()).padStart(2, '0');
     return `${day}.${month}.${year} ${hours}:${minutes}`;
   };
+    // Обработчик переключения типа
+    const handleContentTypeChange = (event, newValue) => {
+      
+        setContentType(newValue);
+        clearFilters();
+    };
 
+    // Обработчики событий
+    const handleItemClick = (itemId) => {
+        const route = contentType === 'tests' 
+            ? `/tests/${itemId}` 
+            : `/surveys/${itemId}`;
+        navigate(route);
+    };
 
-  // Обработчики событий
-  const handleTestClick = (testId) => {
-    
-    navigate(`/tests/${testId}`)
-  };
+    const handleDeleteClick = (itemId, e) => {
+        e.stopPropagation();
+        setItemToDelete(itemId);
+        setDeleteDialogOpen(true);
+    };
 
-
-  const handleDeleteClick = (testId, e) => {
-    e.stopPropagation()
-    setTestToDelete(testId);
-    setDeleteDialogOpen(true);
-  };
-
-  const handleDeleteConfirm = async () => {
-    if (!testToDelete) return;
-    testsApi.deleteTest(testToDelete).then((data)=>{
-        setTests(tests.filter(test => test._id !== testToDelete));
-      setSnackbar({
-        open: true,
-        message: 'Тест успешно удален',
-        severity: 'success',
-      });
-    }).catch((err)=>{
-        setSnackbar({
-        open: true,
-        message: 'Ошибка при удалении теста',
-        severity: 'error',
-      })
-    }).finally(()=>{
-        setDeleteDialogOpen(false);
-        setTestToDelete(null);
-    })
-    
-  };
-
-  const handleShareTest = (testId, e) => {
-    e.stopPropagation();
-    const origin = window.location.origin;
-    navigator.clipboard.writeText(`${origin}/test_take/${testId}`)
-      .then(() => {
-        setSnackbar({
-          open: true,
-          message:  "Ссылка скопирована в буфер обмена!",
-          severity: 'success',
-        });
-      })
-      .catch(err => {
-        console.error('Ошибка копирования:', err);
-      });
-    // Логика генерации ссылки или QR-кода
-  };
-
-
-  const handleCreateTest = () => {
-    navigate('/test_editor')
-  };
-
-  const clearFilters = () => {
-    setSearchQuery('');
-    setSelectedSubject('all');
-    setDateFilter('');
-  };
-
-  // Загрузка тестов при монтировании
-  useEffect(() => {
-    extractSubjects(testsOriginal)
-    setTests(testsOriginal)
-  }, []);
-
-  // Фильтрация тестов при изменении фильтров
-  useEffect(() => {
-    if (tests.length>0){
-        filterTests();
-    }
-    
-  }, [searchQuery, selectedSubject, dateFilter, tests]);
-  return (
-    <>
-     <Header>
-                <div className="navigation">
-                  <nav className="navigation__another-button">
-                    <Link to="/glavnay" className="navigation__button">
-                      Главная
-                    </Link>
-                    <Link
-                      to="/lk"
-                      className="navigation__button navigation__button_active"
-                    >
-                      Личный кабинет
-                    </Link>
-                  </nav>
-                </div>
-              </Header>
-    <Box className={classes.root}>
+    const handleDeleteConfirm = async () => {
+        if (!itemToDelete) return;
         
-      {/* Заголовок и кнопки действий */}
-      <Box className={classes.header}>
-        <Typography variant="h4" component="h1">
-          Мои тесты
-        </Typography>
-        <Box display="flex" gap={1}>
-          <Button
-            variant="contained"
-            color="primary"
-            startIcon={<AddIcon />}
-            onClick={handleCreateTest}
-            size="small"
-          >
-            Новый тест
-          </Button>
-        </Box>
-      </Box>
+        const api = getCurrentApi();
+        const deleteMethod = contentType === 'tests' 
+            ? api.deleteTest 
+            : api.deleteSurvey;
+        
+        deleteMethod(itemToDelete).then((data) => {
+            setItems(items.filter(item => item._id !== itemToDelete));
+            setSnackbar({
+                open: true,
+                message: `${contentType === 'tests' ? 'Тест' : 'Анкета'} успешно удален${contentType === 'tests' ? '' : 'а'}`,
+                severity: 'success',
+            });
+        }).catch((err) => {
+            setSnackbar({
+                open: true,
+                message: `Ошибка при удалении ${contentType === 'tests' ? 'теста' : 'анкеты'}`,
+                severity: 'error',
+            });
+        }).finally(() => {
+            setDeleteDialogOpen(false);
+            setItemToDelete(null);
+        });
+    };
 
-      <TestsFilter classes={classes} searchQuery={searchQuery} setSearchQuery={setSearchQuery} showFilters={showFilters} setShowFilters={setShowFilters} clearFilters={clearFilters} selectedSubject={selectedSubject} dateFilter={dateFilter} setSelectedSubject={setSelectedSubject} subjects={subjects} setDateFilter={setDateFilter}/>
+    const handleShareItem = (itemId, e) => {
+        e.stopPropagation();
+        const origin = window.location.origin;
+        const path = contentType === 'tests' 
+            ? `/test_take/${itemId}` 
+            : `/survey_take/${itemId}`;
+        
+        navigator.clipboard.writeText(`${origin}${path}`)
+            .then(() => {
+                setSnackbar({
+                    open: true,
+                    message: "Ссылка скопирована в буфер обмена!",
+                    severity: 'success',
+                });
+            })
+            .catch(err => {
+                console.error('Ошибка копирования:', err);
+            });
+    };
 
-      {/* Информация о результатах */}
-      <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
-        <Typography variant="body2" color="textSecondary">
-          Найдено тестов: <strong>{filteredTests.length}</strong> из {tests.length}
-        </Typography>
-        {filteredTests.length < tests.length && (
-          <Button 
-            size="small" 
-            onClick={clearFilters}
-            variant="text"
-          >
-            Показать все ({tests.length})
-          </Button>
-        )}
-      </Box>
+    const handleCreateItem = () => {
+        const route = contentType === 'tests' 
+            ? '/test_editor' 
+            : '/survey_editor';
+        navigate(route);
+    };
 
-      {/* Список тестов */}
-      <Box>
-        {filteredTests.length === 0 ? (
-          <Paper style={{ padding: 40, textAlign: 'center' }}>
-            <SearchIcon style={{ fontSize: 48, color: '#9e9e9e', marginBottom: 16 }} />
-            <Typography variant="h6" color="textSecondary" gutterBottom>
-              Тесты не найдены
-            </Typography>
-            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
-              Попробуйте изменить параметры поиска
-            </Typography>
-          </Paper>
-        ) : (
-          filteredTests.map((test) => {
-            
-            return (
-              <Card
-                key={test._id}
-                className={classes.testCard}
-                onClick={(e) => handleTestClick(test._id)}
-              >
-                <CardContent>
-                  {/* Заголовок карточки */}
-                  <Box className={classes.testHeader}>
-                    <Box flex={1}>
-                      <Typography variant="h6" className={classes.testTitle} gutterBottom>
-                        {test.name}
-                      </Typography>
-                      {test.description && (
-                        <Typography 
-                          variant="body2" 
-                          color="textSecondary"
-                          style={{
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical'
-                          }}
+    const clearFilters = () => {
+        setSearchQuery('');
+        setSelectedSubject('all');
+        setDateFilter('');
+    };
+
+    // Загрузка данных при монтировании или смене типа
+    useEffect(() => {
+        const currentData = getCurrentData();
+        //extractSubjects(currentData);
+        setItems(currentData);
+    }, [contentType, testsOriginal, surveysOriginal]);
+    // Отдельный эффект для обновления subjects при изменении items
+useEffect(() => {
+    if (items.length > 0) {
+        const subjectsSet = new Set();
+        items.forEach(item => {
+            if (item.subject) {
+                subjectsSet.add(item.subject);
+            }
+        });
+        const subjectsList = ['Все предметы', ...Array.from(subjectsSet)];
+        setSubjects(subjectsList);
+    } else {
+        setSubjects(['Все предметы']);
+    }
+}, [items]); // Зависит только от items, не от currentData
+    // Фильтрация при изменении фильтров
+    useEffect(() => {
+        if (items.length > 0) {
+            filterItems();
+        }
+    }, [searchQuery, selectedSubject, dateFilter, items]);
+
+    // Получение информации о типе элемента
+    const getItemTypeInfo = (item) => {
+        if (contentType === 'tests') {
+            return {
+                typeLabel: 'Тест',
+                duration: item.duration,
+                passingScore: item.passingScore,
+                maxAttempts: item.maxAttempts,
+                showStats: true
+            };
+        } else {
+            return {
+                typeLabel: 'Анкета',
+                duration: null,
+                passingScore: null,
+                maxAttempts: null,
+                showStats: false
+            };
+        }
+    };
+
+    return (
+        <>
+            <Header>
+                <div className="navigation">
+                    <nav className="navigation__another-button">
+                        <Link to="/glavnay" className="navigation__button">
+                            Главная
+                        </Link>
+                        <Link
+                            to="/lk"
+                            className="navigation__button navigation__button_active"
                         >
-                          {test.description}
-                        </Typography>
-                      )}
-                    </Box>
-                    <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
-                      <Chip
-                        label={test.subject}
-                        size="small"
-                        style={{ backgroundColor: '#e3f2fd', color: '#1976d2', fontWeight: '500' }}
-                      />
-                    </Box>
-                  </Box>
-
-                  {/* Информация о тесте */}
-                  <Box className={classes.testInfo}>
-                    <Grid container spacing={2}>
-                      <Grid item xs={6} sm={4} md={2}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <AccessTimeIcon fontSize="small" color="action" />
-                          <Typography variant="body2">
-                            <strong>{test.duration}</strong> мин
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      
-                      <Grid item xs={6} sm={4} md={2}>
-                        <Box display="flex" alignItems="center" gap={1}>
-                          <CheckCircleIcon fontSize="small" color="action" />
-                          <Typography variant="body2">
-                            <strong>{test.passingScore}%</strong>
-                          </Typography>
-                        </Box>
-                      </Grid>
-                      
-                      
-                      <Grid item xs={6} sm={4} md={2}>
-                        <Typography variant="body2">
-                          <strong>Попыток:</strong> {test.maxAttempts || '∞'}
-                        </Typography>
-                      </Grid>
-                      
-                      <Grid item xs={6} sm={4} md={2}>
-                        <Typography variant="body2">
-                          <strong>Создан:</strong> {formatDateForDisplay(test.createdAt)}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                  </Box>
-
-                  {/* Действия */}
-                  <Box className={classes.testActions}>
-                    <IconButton
-                      size="small"
-                      title="Копировать ссылку"
-                      onClick={(e) => handleShareTest(test._id, e)}
-                      style={{ color: '#2e7d32' }}
+                            Личный кабинет
+                        </Link>
+                    </nav>
+                </div>
+            </Header>
+            
+            <Box className={classes.root}>
+                {/* Переключатель типов */}
+                <Box className={classes.header}>
+                    <Tabs 
+                        value={contentType} 
+                        onChange={handleContentTypeChange}
+                        indicatorColor="primary"
+                        textColor="primary"
+                        style={{ marginBottom: 24 }}
                     >
-                      <ShareIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton
-                      size="small"
-                      title="Удалить"
-                      onClick={(e) => handleDeleteClick(test._id, e)}
-                      style={{ color: '#d32f2f' }}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })
-        )}
-      </Box>
+                        <Tab value="tests" label="Мои тесты" />
+                        <Tab value="surveys" label="Мои анкеты" />
+                    </Tabs>
+                    
+                    <Box display="flex" gap={1}>
+                        <Button
+                            variant="contained"
+                            color="primary"
+                            startIcon={<AddIcon />}
+                            onClick={handleCreateItem}
+                            size="small"
+                        >
+                            Нов{contentType === 'tests' ? 'ый тест' : 'ая анкета'}
+                        </Button>
+                    </Box>
+                </Box>
 
-      {/* Диалог подтверждения удаления */}
-      <Dialog 
-        open={deleteDialogOpen} 
-        onClose={() => setDeleteDialogOpen(false)}
-      >
-        <DialogTitle>Подтверждение удаления</DialogTitle>
-        <DialogContent>
-          <Typography>
-            Вы уверены, что хотите удалить этот тест? Все связанные данные будут безвозвратно удалены.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
-            Отмена
-          </Button>
-          <Button 
-            onClick={handleDeleteConfirm} 
-            color="secondary" 
-            variant="contained"
-          >
-            Удалить
-          </Button>
-        </DialogActions>
-      </Dialog>
+                <TestsFilter 
+                    classes={classes} 
+                    searchQuery={searchQuery} 
+                    setSearchQuery={setSearchQuery} 
+                    showFilters={showFilters} 
+                    setShowFilters={setShowFilters} 
+                    clearFilters={clearFilters} 
+                    selectedSubject={selectedSubject} 
+                    dateFilter={dateFilter} 
+                    setSelectedSubject={setSelectedSubject} 
+                    subjects={subjects} 
+                    setDateFilter={setDateFilter}
+                />
 
-      {/* Снэкбар для уведомлений */}
-      <SnackbarCustom setSnackbar={setSnackbar} snackbar={snackbar} />
-    </Box>
-    </>
-  );
+                {/* Информация о результатах */}
+                <Box mb={3} display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="body2" color="textSecondary">
+                        Найдено {contentType === 'tests' ? 'тестов' : 'анкет'}: <strong>{filteredItems.length}</strong> из {items.length}
+                    </Typography>
+                    {filteredItems.length < items.length && (
+                        <Button 
+                            size="small" 
+                            onClick={clearFilters}
+                            variant="text"
+                        >
+                            Показать все ({items.length})
+                        </Button>
+                    )}
+                </Box>
+
+                {/* Список элементов */}
+                <Box>
+                    {filteredItems.length === 0 ? (
+                        <Paper style={{ padding: 40, textAlign: 'center' }}>
+                            <SearchIcon style={{ fontSize: 48, color: '#9e9e9e', marginBottom: 16 }} />
+                            <Typography variant="h6" color="textSecondary" gutterBottom>
+                                {contentType === 'tests' ? 'Тесты' : 'Анкеты'} не найдены
+                            </Typography>
+                            <Typography variant="body2" color="textSecondary" style={{ marginBottom: 16 }}>
+                                Попробуйте изменить параметры поиска
+                            </Typography>
+                        </Paper>
+                    ) : (
+                        filteredItems.map((item) => {
+                            const itemInfo = getItemTypeInfo(item);
+                            return (
+                                <Card
+                                    key={item._id}
+                                    className={classes.testCard}
+                                    onClick={() => handleItemClick(item._id)}
+                                >
+                                    <CardContent>
+                                        {/* Заголовок карточки */}
+                                        <Box className={classes.testHeader}>
+                                            <Box flex={1}>
+                                                <Box display="flex" alignItems="center" gap={1} mb={1}>
+                                                    <Typography variant="h6" className={classes.testTitle} gutterBottom>
+                                                        {item.name}
+                                                    </Typography>
+                                                    <Chip
+                                                        label={itemInfo.typeLabel}
+                                                        size="small"
+                                                        style={{ 
+                                                            backgroundColor: contentType === 'tests' ? '#e3f2fd' : '#f3e5f5', 
+                                                            color: contentType === 'tests' ? '#1976d2' : '#9c27b0', 
+                                                            fontWeight: '500' 
+                                                        }}
+                                                    />
+                                                </Box>
+                                                {item.description && (
+                                                    <Typography 
+                                                        variant="body2" 
+                                                        color="textSecondary"
+                                                        style={{
+                                                            overflow: 'hidden',
+                                                            textOverflow: 'ellipsis',
+                                                            display: '-webkit-box',
+                                                            WebkitLineClamp: 2,
+                                                            WebkitBoxOrient: 'vertical'
+                                                        }}
+                                                    >
+                                                        {item.description}
+                                                    </Typography>
+                                                )}
+                                            </Box>
+                                            <Box display="flex" gap={1} alignItems="center" flexWrap="wrap">
+                                                <Chip
+                                                    label={item.subject}
+                                                    size="small"
+                                                    style={{ backgroundColor: '#e3f2fd', color: '#1976d2', fontWeight: '500' }}
+                                                />
+                                            </Box>
+                                        </Box>
+
+                                        {/* Информация об элементе */}
+                                        {itemInfo.showStats && (
+                                            <Box className={classes.testInfo}>
+                                                <Grid container spacing={2}>
+                                                    <Grid item xs={6} sm={4} md={2}>
+                                                        <Box display="flex" alignItems="center" gap={1}>
+                                                            <AccessTimeIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>{itemInfo.duration}</strong> мин
+                                                            </Typography>
+                                                        </Box>
+                                                    </Grid>
+                                                    
+                                                    <Grid item xs={6} sm={4} md={2}>
+                                                        <Box display="flex" alignItems="center" gap={1}>
+                                                            <CheckCircleIcon fontSize="small" color="action" />
+                                                            <Typography variant="body2">
+                                                                <strong>{itemInfo.passingScore}%</strong>
+                                                            </Typography>
+                                                        </Box>
+                                                    </Grid>
+                                                    
+                                                    <Grid item xs={6} sm={4} md={2}>
+                                                        <Typography variant="body2">
+                                                            <strong>Попыток:</strong> {itemInfo.maxAttempts || '∞'}
+                                                        </Typography>
+                                                    </Grid>
+                                                    
+                                                    <Grid item xs={6} sm={4} md={2}>
+                                                        <Typography variant="body2">
+                                                            <strong>Создан:</strong> {formatDateForDisplay(item.createdAt)}
+                                                        </Typography>
+                                                    </Grid>
+                                                </Grid>
+                                            </Box>
+                                        )}
+
+                                        {/* Действия */}
+                                        <Box className={classes.testActions}>
+                                            <IconButton
+                                                size="small"
+                                                title="Копировать ссылку"
+                                                onClick={(e) => handleShareItem(item._id, e)}
+                                                style={{ color: '#2e7d32' }}
+                                            >
+                                                <ShareIcon fontSize="small" />
+                                            </IconButton>
+                                            <IconButton
+                                                size="small"
+                                                title="Удалить"
+                                                onClick={(e) => handleDeleteClick(item._id, e)}
+                                                style={{ color: '#d32f2f' }}
+                                            >
+                                                <DeleteIcon fontSize="small" />
+                                            </IconButton>
+                                        </Box>
+                                    </CardContent>
+                                </Card>
+                            );
+                        })
+                    )}
+                </Box>
+
+                {/* Диалог подтверждения удаления */}
+                <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+                    <DialogTitle>Подтверждение удаления</DialogTitle>
+                    <DialogContent>
+                        <Typography>
+                            Вы уверены, что хотите удалить {contentType === 'tests' ? 'этот тест' : 'эту анкету'}? 
+                            Все связанные данные будут безвозвратно удалены.
+                        </Typography>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteDialogOpen(false)} color="primary">
+                            Отмена
+                        </Button>
+                        <Button 
+                            onClick={handleDeleteConfirm} 
+                            color="secondary" 
+                            variant="contained"
+                        >
+                            Удалить
+                        </Button>
+                    </DialogActions>
+                </Dialog>
+
+                <SnackbarCustom setSnackbar={setSnackbar} snackbar={snackbar} />
+            </Box>
+        </>
+    );
 };
 
 export default TestListPage;

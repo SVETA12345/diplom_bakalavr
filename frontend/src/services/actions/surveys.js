@@ -1,0 +1,2 @@
+export const SAVE_SURVEYS = 'SAVE_SURVEYS';
+export const UPDATE_SURVEYS= 'UPDATE_SURVEYS'
