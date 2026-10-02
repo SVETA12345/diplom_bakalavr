@@ -1,3 +1,4 @@
+import { API_URL } from './constants';
 class Api{
     constructor(config){
         this._url=config.url;
@@ -94,7 +95,7 @@ class Api{
 }
 
 export const surveysApi = new Api({
-    url:'http://localhost:3005/api',
+    url:API_URL,
     headers:{
       'Content-Type': 'application/json',
     },

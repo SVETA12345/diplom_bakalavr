@@ -1,6 +1,7 @@
+import { API_URL } from './constants';
 
 //export const BASE_URL = 'https://movies.mao321.keenetic.pro/api';
-export const BASE_URL = 'http://localhost:3005/api';
+export const BASE_URL = API_URL;
 function getResponseData(res) {
     console.log(res)
   if (res.ok) {

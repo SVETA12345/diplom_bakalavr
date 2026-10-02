@@ -74,7 +74,9 @@ function Login(props) {
                     setModal({
                         titleDialog: 'Подтверждение',
                         openDialog: true,
-                        dialogMessage: 'Код подтверждения отправлен на вашу почту'
+                        dialogMessage: data.devCode
+                            ? `Почта не настроена (режим разработки). Ваш код: ${data.devCode}`
+                            : 'Код подтверждения отправлен на вашу почту'
                     });
                 } else {
                     const user = data.admin;
@@ -134,11 +136,13 @@ function Login(props) {
         setLoading(true);
         
         duckAuth.resendTwoFactorCode(loginData.email)
-            .then(() => {
+            .then((data) => {
                 setModal({
                     titleDialog: 'Успешно',
                     openDialog: true,
-                    dialogMessage: 'Новый код отправлен на вашу почту'
+                    dialogMessage: data && data.devCode
+                        ? `Почта не настроена (режим разработки). Ваш код: ${data.devCode}`
+                        : 'Новый код отправлен на вашу почту'
                 });
             })
             .catch((err) => {
@@ -169,12 +173,14 @@ function Login(props) {
         setLoading(true);
         
         duckAuth.sendResetCode(resetEmail)
-            .then(() => {
+            .then((data) => {
                 setResetStep(2);
                 setModal({
                     titleDialog: 'Успешно',
                     openDialog: true,
-                    dialogMessage: 'Код для сброса пароля отправлен на вашу почту'
+                    dialogMessage: data && data.devCode
+                        ? `Почта не настроена (режим разработки). Ваш код: ${data.devCode}`
+                        : 'Код для сброса пароля отправлен на вашу почту'
                 });
             })
             .catch((err) => {

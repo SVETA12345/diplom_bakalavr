@@ -2,7 +2,7 @@ const User = require('../models/user');
 
 // controllers/user.js (обновленная версия)
 const VerificationCode = require('../models/verificationCode');
-const { generateVerificationCode, sendVerificationEmail } = require('../utils/emailService');
+const { generateVerificationCode, sendVerificationEmail, isDevCodeMode } = require('../utils/emailService');
 
 const httpConstants = require('http2').constants;
 const bcrypt = require('bcryptjs');
@@ -121,7 +121,8 @@ const sendPasswordResetCode = async (req, res, next) => {
     
     res.status(200).json({ 
       message: 'Код подтверждения отправлен на email',
-      email: email // Можно вернуть email для использования на фронтенде
+      email: email, // Можно вернуть email для использования на фронтенде
+      ...(isDevCodeMode() ? { devCode: code } : {})
     });
   } catch (err) {
     next(err);
@@ -206,7 +207,8 @@ const sendTwoFactorCode = async (req, res, next) => {
     
     res.status(200).json({ 
       message: 'Код подтверждения отправлен на email',
-      requiresTwoFactor: true
+      requiresTwoFactor: true,
+      ...(isDevCodeMode() ? { devCode: code } : {})
     });
   } catch (err) {
     next(err);
@@ -243,7 +245,8 @@ const loginWithTwoFactor = async (req, res, next) => {
       
       return res.status(200).json({ 
         requiresTwoFactor: true,
-        message: 'Код подтверждения отправлен на email'
+        message: 'Код подтверждения отправлен на email',
+        ...(isDevCodeMode() ? { devCode: code } : {})
       });
     }
     

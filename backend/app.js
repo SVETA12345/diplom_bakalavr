@@ -14,8 +14,9 @@ const { errorHandler } = require('./errors/errorHandler');
 const app = express();
 require('dotenv').config();
 
-const { NODE_ENV, JWT_SECRET, BASE_URL } = process.env;
-console.log(NODE_ENV, JWT_SECRET, BASE_URL);
+const { NODE_ENV, BASE_URL } = process.env;
+const PORT = process.env.PORT || 3005;
+console.log(NODE_ENV, BASE_URL);
 mongoose.connect(BASE_URL, {
   useNewUrlParser: true,
 }).then(() => { console.log('connected db'); });
@@ -39,6 +40,6 @@ app.use(errors());
 app.use(errorLogger);
 app.use(errorHandler);
 
-app.listen(3005, () => {
-  console.log('server is running');
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`server is running on port ${PORT}`);
 });

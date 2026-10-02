@@ -1,0 +1,18 @@
+# Logs
+logs
+*.log
+
+# Environment
+.env
+.env.local
+
+# Dependencies
+node_modules
+
+# Caches
+.npm
+
+# OS / editor
+.DS_Store
+.idea
+.vscode

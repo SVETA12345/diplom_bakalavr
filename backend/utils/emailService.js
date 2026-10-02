@@ -3,6 +3,8 @@ const nodemailer = require('nodemailer');
 const crypto = require('crypto');
 require('dotenv').config(); 
 const { EMAIL_USER, EMAIL_PASSWORD } = process.env;
+// В dev-режиме письма не отправляются, а код выводится в лог и возвращается в ответе API
+const isDevCodeMode = () => process.env.DEV_2FA_CODE === 'true';
 // Настройка транспортера (пример для Gmail)
 const transporter = nodemailer.createTransport({
    host: 'smtp.mail.ru',
@@ -20,6 +22,11 @@ const generateVerificationCode = () => {
 
 const sendVerificationEmail = async (email, code, type) => {
   let subject, html;
+
+  if (isDevCodeMode()) {
+    console.log(`[DEV_2FA_CODE] ${type} код для ${email}: ${code}`);
+    return { delivered: false, code };
+  }
   
   switch(type) {
     case 'password_reset':
@@ -52,9 +59,11 @@ const sendVerificationEmail = async (email, code, type) => {
   };
   
   await transporter.sendMail(mailOptions);
+  return { delivered: true };
 };
 
 module.exports = {
   generateVerificationCode,
-  sendVerificationEmail
+  sendVerificationEmail,
+  isDevCodeMode
 };
